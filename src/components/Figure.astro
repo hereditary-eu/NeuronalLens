@@ -1,0 +1,50 @@
+---
+// import * as Plot from "@observablehq/plot";
+// import { JSDOM } from "jsdom";
+
+const { options } = Astro.props;
+// const jsdom = new JSDOM();
+// const plottyplot = Plot.plot({
+//   ...options,
+// document: jsdom.window._document,
+// });
+---
+
+<astro-figure data-plot-options={JSON.stringify(options)}>
+  <!-- <Fragment set:html={plottyplot.outerHTML} /> -->
+</astro-figure>
+
+<script>
+  import * as Plot from "@observablehq/plot";
+  import penguins from "../penguins.json";
+
+  class AstroFigure extends HTMLElement {
+    constructor() {
+      super();
+      this.innerHTML = "";
+      this.appendChild(
+        Plot.plot({
+          marks: [
+            Plot.delaunayMesh(penguins, {
+              x: "culmen_depth_mm",
+              y: "culmen_length_mm",
+              z: "species",
+              stroke: "species",
+              strokeOpacity: 0.5,
+            }),
+            Plot.dot(penguins, {
+              x: "culmen_depth_mm",
+              y: "culmen_length_mm",
+              fill: "species",
+              tip: "x",
+            }),
+          ],
+          width: 1100,
+          height: 550,
+          // ...JSON.parse(this.dataset.plotOptions || ""),
+        })
+      );
+    }
+  }
+  customElements.define("astro-figure", AstroFigure);
+</script>
