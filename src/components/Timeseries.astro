@@ -1,0 +1,47 @@
+---
+// import * as Plot from "@observablehq/plot";
+// import { JSDOM } from "jsdom";
+
+const { options } = Astro.props;
+// const jsdom = new JSDOM();
+// const plottyplot = Plot.plot({
+//   ...options,
+// document: jsdom.window._document,
+// });
+---
+
+<astro-timeseries data-plot-options={JSON.stringify(options)}>
+  <!-- <Fragment set:html={plottyplot.outerHTML} /> -->
+</astro-timeseries>
+
+<script>
+  import * as Plot from "@observablehq/plot";
+  import penguins from "../penguins.json";
+  import { selector } from "./store";
+
+  class AstroTimeseries extends HTMLElement {
+    constructor() {
+      super();
+      selector.subscribe((dataselector) => {
+        this.innerHTML = "";
+        this.appendChild(
+          Plot.plot({
+            marks: [
+              Plot.lineY(penguins.slice(dataselector[0], dataselector[1]), {
+                // x: "culmen_depth_mm",
+                y: "culmen_length_mm",
+                stroke: "species",
+                tip: "x",
+              }),
+            ],
+            width: 800,
+            height: 450,
+            style: "--plot-background: black",
+            // ...JSON.parse(this.dataset.plotOptions || ""),
+          })
+        );
+      });
+    }
+  }
+  customElements.define("astro-timeseries", AstroTimeseries);
+</script>
