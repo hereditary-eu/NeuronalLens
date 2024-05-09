@@ -16,28 +16,49 @@ const { options } = Astro.props;
 
 <script>
   import * as Plot from "@observablehq/plot";
-  import penguins from "../penguins.json";
+  import * as d3 from "d3";
   import { selector } from "./store";
 
   class AstroTimeseries extends HTMLElement {
     constructor() {
       super();
-      selector.subscribe((dataselector) => {
+      selector.subscribe(async (neuron) => {
+        const monitorCsv = await (
+          await fetch(`/monitors/0_${neuron.local_id}.csv`)
+        ).text();
+        const monitor = d3.dsvFormat(";").parseRows(monitorCsv, (row) => {
+          return {
+            step: +row[0],
+            fired: +row[1],
+            fired_fraction: +row[2],
+            activity: +row[3],
+            dampening: +row[4],
+            current_calcium: +row[5],
+            target_calcium: +row[6],
+            synaptic_input: +row[7],
+            background_input: +row[8],
+            grown_axons: +row[9],
+            connected_axons: +row[10],
+            grown_dendrites: +row[11],
+            connected_dendrites: +row[12],
+          };
+        });
+        console.log(monitor);
         this.innerHTML = "";
         this.appendChild(
           Plot.plot({
             marks: [
-              Plot.lineY(penguins.slice(dataselector[0], dataselector[1]), {
-                // x: "culmen_depth_mm",
-                y: "culmen_length_mm",
-                stroke: "species",
+              Plot.lineY(monitor.slice(0, 400), {
+                x: "step",
+                y: "activity",
+                z: null,
+                stroke: "dampening",
                 tip: "x",
               }),
             ],
             width: 800,
             height: 450,
             style: "--plot-background: black",
-            // ...JSON.parse(this.dataset.plotOptions || ""),
           })
         );
       });

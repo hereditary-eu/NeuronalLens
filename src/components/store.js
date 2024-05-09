@@ -1,3 +1,3 @@
 import { atom } from "nanostores";
 
-export const selector = atom([0, 100]);
+export const selector = atom({ local_id: 1 });

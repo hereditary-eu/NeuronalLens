@@ -16,8 +16,20 @@ const { options } = Astro.props;
 
 <script>
   import * as Plot from "@observablehq/plot";
-  import penguins from "../penguins.json";
+  import * as d3 from "d3";
   import { selector } from "./store";
+
+  const positions = (await d3.dsv(" ", "/rank_0_positions.txt")).map((d) => {
+    return {
+      local_id: +d.local_id,
+      x: +d.x,
+      y: +d.y,
+      z: +d.z,
+      area: d.area,
+      type: d.type,
+    };
+  });
+  console.log(positions);
 
   class AstroGraph extends HTMLElement {
     constructor() {
@@ -25,26 +37,18 @@ const { options } = Astro.props;
       this.innerHTML = "";
       const theplot = Plot.plot({
         marks: [
-          Plot.delaunayMesh(penguins, {
-            x: "culmen_depth_mm",
-            y: "culmen_length_mm",
-            z: "species",
-            stroke: "species",
+          Plot.delaunayMesh(positions.slice(0, 2000), {
+            x: "x",
+            y: "z",
+            stroke: "type",
             strokeOpacity: 0.5,
+            tip: "xy",
           }),
-          Plot.dot(penguins, {
-            x: "culmen_depth_mm",
-            y: "culmen_length_mm",
-            fill: "species",
-            tip: "x",
-          }),
-          // Plot.click(
-          //   penguins,
-          //   Plot.pointerX({ x: "culmen_depth_mm", y: "culmen_length_mm" }),
-          //   (event, data) => {
-          //     console.log(data);
-          //   }
-          // ),
+          // Plot.dot(positions, {
+          //   x: "x",
+          //   y: "y",
+          //   tip: "x",
+          // }),
         ],
         width: 800,
         height: 450,
@@ -53,11 +57,7 @@ const { options } = Astro.props;
       this.appendChild(theplot);
       this.addEventListener("click", (ev) => {
         console.log(theplot.value);
-        if (theplot.value !== null)
-          selector.set([
-            (Math.random() * penguins.length) / 2,
-            penguins.length / 2 + (Math.random() * penguins.length) / 2,
-          ]);
+        if (theplot.value !== null) selector.set(theplot.value);
       });
     }
   }
