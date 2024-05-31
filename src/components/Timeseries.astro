@@ -26,6 +26,7 @@ const { options } = Astro.props;
         const monitorCsv = await (
           await fetch(`/monitors/0_${neuron.local_id}.csv`)
         ).text();
+        console.log("rerender");
         const monitor = d3.dsvFormat(";").parseRows(monitorCsv, (row) => {
           return {
             step: +row[0],
@@ -43,20 +44,20 @@ const { options } = Astro.props;
             connected_dendrites: +row[12],
           };
         });
-        console.log(monitor);
+        // console.log(monitor);
         this.innerHTML = "";
         this.appendChild(
           Plot.plot({
             marks: [
               Plot.lineY(monitor.slice(0, 400), {
                 x: "step",
-                y: "current_calcium",
+                y: "activity",
                 z: null,
                 stroke: "dampening",
                 tip: "x",
               }),
             ],
-            width: 800,
+            width: 900,
             height: 450,
             style: "--plot-background: black",
           })

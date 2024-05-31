@@ -19,6 +19,14 @@ const { options } = Astro.props;
   import * as d3 from "d3";
   import { selector } from "./store";
 
+  function getEveryNth(arr, nth) {
+    const result = [];
+    for (let index = 0; index < arr.length; index += nth) {
+      result.push(arr[index]);
+    }
+    return result;
+  }
+
   const positions = (await d3.dsv(" ", "/rank_0_positions.txt")).map((d) => {
     return {
       local_id: +d.local_id,
@@ -29,36 +37,72 @@ const { options } = Astro.props;
       type: d.type,
     };
   });
-  console.log(positions);
+  var selectedPositions = getEveryNth(positions.slice(4000, 10000), 5);
+  const out_connections_at_t0 = (
+    await d3.dsv(" ", "/rank_0_step_0_out_network.txt")
+  ).map((d) => {
+    // console.log(d);
+    return {
+      // ignore MPI ranks
+      source_id: +d.source_id,
+      target_id: +d.target_id,
+      weight: +d.weight,
+    };
+  });
+  console.log(out_connections_at_t0);
+
+  var selected_neuron_connections = {};
+  function selectNeuron(neuron) {
+    selected_neuron_connections = {};
+    for (let i = 0; i < out_connections_at_t0.length; i++) {
+      const element = out_connections_at_t0[i];
+      if (element.source_id == neuron.local_id)
+        selected_neuron_connections[element.target_id] = element.weight;
+    }
+    // console.log(selected_neuron_connections);
+    // selectedPositions = [...selectedPositions]; // to trigger a re-render
+    selector.set(neuron);
+  }
 
   class AstroGraph extends HTMLElement {
     constructor() {
       super();
-      this.innerHTML = "";
-      const theplot = Plot.plot({
-        marks: [
-          Plot.delaunayMesh(positions.slice(0, 2000), {
-            x: "x",
-            y: "z",
-            stroke: "type",
-            strokeOpacity: 0.5,
-            tip: "xy",
-          }),
-          // Plot.dot(positions, {
-          //   x: "x",
-          //   y: "y",
-          //   tip: "x",
-          // }),
-        ],
-        width: 800,
-        height: 450,
-        style: "--plot-background: black",
+      selector.subscribe(() => {
+        this.innerHTML = "";
+        let connectionHeuristic = (neuron) => {
+          if (selected_neuron_connections[neuron.local_id])
+            console.log("yay!", neuron.local_id);
+          return selected_neuron_connections[neuron.local_id] || 0.15;
+        };
+        const theplot = Plot.plot({
+          marks: [
+            Plot.delaunayMesh(selectedPositions, {
+              x: "x",
+              y: "z",
+              strokeOpacity: 0.5,
+              // tip: "xy",
+            }),
+            Plot.dot(selectedPositions, {
+              x: "x",
+              y: "z",
+              tip: "xy",
+              fill: connectionHeuristic,
+              r: connectionHeuristic,
+              // stroke: connectionHeuristic,
+              stroke: "area",
+            }),
+          ],
+          width: 1200,
+          height: 450,
+          style: "--plot-background: black",
+        });
+        this.appendChild(theplot);
+        this.addEventListener("click", (ev) => {
+          // console.log(theplot.value);
+          if (theplot.value !== null) selectNeuron(theplot.value);
+        });
       });
-      this.appendChild(theplot);
-      this.addEventListener("click", (ev) => {
-        console.log(theplot.value);
-        if (theplot.value !== null) selector.set(theplot.value);
-      });
+      selectNeuron(selectedPositions[0]);
     }
   }
   customElements.define("astro-graph", AstroGraph);
