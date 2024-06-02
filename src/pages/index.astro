@@ -8,6 +8,11 @@ import Timeseries from "../components/Timeseries.astro";
 <Layout title="The Neuronal Network of the Brain.">
   <main>
     <h1>Neuronal Brain <span class="text-gradient">Network</span></h1>
+    <p>
+      To take a closer look at the data, select a Neuron on the left using your
+      mouse. Connected Neurons will be highlighted in the graph and you will
+      find timeseries visualisations on the right.
+    </p>
     <div style="display: flex;">
       <Graph />
       <Timeseries selector={[0, 200]} />
@@ -19,19 +24,19 @@ import Timeseries from "../components/Timeseries.astro";
     </p> -->
     <ul role="list" class="link-card-grid">
       <Card
-        href="https://docs.astro.build/"
-        title="Documentation"
-        body="Learn how Astro works and explore the official API docs."
+        href="https://zenodo.org/records/10519411"
+        title="Dataset: Neuronal Network Simulation of the Brain"
+        body="Proof of Concept dataset: IEEE Vis Contest 2023."
       />
       <Card
-        href="https://astro.build/integrations/"
-        title="Integrations"
-        body="Supercharge your project with new frameworks and libraries."
+        href="https://hereditary-project.eu/"
+        title="EU Project: HEREDITARY"
+        body="Part of EU Horizon: HetERogeneous sEmantic Data integratIon for the guT-bRain interplaY."
       />
       <Card
-        href="https://astro.build/themes/"
-        title="Themes"
-        body="Explore a galaxy of community-built starter themes."
+        href="https://github.com/"
+        title="Source Code: Extend your own"
+        body="Take a look at the source code to implement your own visualisation solution."
       />
     </ul>
   </main>
@@ -56,11 +61,11 @@ import Timeseries from "../components/Timeseries.astro";
     z-index: -1;
   }
   h1 {
-    font-size: 4rem;
+    font-size: 2.5rem;
     font-weight: 700;
     line-height: 1;
     text-align: center;
-    margin-bottom: 1em;
+    margin-bottom: 0.4em;
   }
   .text-gradient {
     background-image: var(--accent-gradient);

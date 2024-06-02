@@ -58,7 +58,23 @@ const { options } = Astro.props;
               }),
             ],
             width: 900,
-            height: 450,
+            height: 300,
+            style: "--plot-background: black",
+          })
+        );
+        this.appendChild(
+          Plot.plot({
+            marks: [
+              Plot.lineY(monitor.slice(0, 400), {
+                x: "step",
+                y: "dampening",
+                z: null,
+                stroke: "dampening",
+                tip: "x",
+              }),
+            ],
+            width: 900,
+            height: 300,
             style: "--plot-background: black",
           })
         );
