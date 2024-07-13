@@ -13,6 +13,10 @@
   "dependencies": {
     "@observablehq/plot": "^0.6.15",
     "astro": "^4.11.5",
-    "nanostores": "^0.10.3"
+    "nanostores": "^0.10.3",
+    "three": "^0.166.1"
+  },
+  "prettier": {
+    "printWidth": 120
   }
 }

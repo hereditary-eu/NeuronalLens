@@ -1,0 +1,70 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="3D view" />
+
+<script>
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import * as d3 from "d3";
+
+  const positions = (await d3.dsv(" ", "/rank_0_positions.txt")).map((d) => {
+    return {
+      local_id: +d.local_id,
+      x: +d.x,
+      y: +d.y,
+      z: +d.z,
+      area: d.area,
+      type: d.type,
+    };
+  });
+
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 500);
+  camera.position.set(0, 0, 300);
+  camera.lookAt(0, 0, 0);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+
+  controls.enableDamping = true;
+  controls.rotateSpeed = 1.4;
+  controls.dampingFactor = 0.9;
+  controls.enableZoom = true;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.9;
+
+  window.addEventListener(
+    "resize",
+    () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    },
+    false
+  );
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  const scene = new THREE.Scene();
+  const material = new THREE.LineBasicMaterial({ color: 0x00aaff });
+  const points = positions.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+  const geometry = new THREE.BufferGeometry().setFromPoints(points).center();
+  const line = new THREE.Points(geometry, material);
+  scene.add(line);
+
+  animate();
+</script>
+
+<style>
+  body {
+    margin: 0;
+  }
+</style>
