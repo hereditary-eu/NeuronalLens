@@ -3,18 +3,22 @@ import Layout from "../layouts/Layout.astro";
 import Card from "../components/Card.astro";
 import Graph from "../components/Graph.astro";
 import Timeseries from "../components/Timeseries.astro";
+import Three from "../components/Three.astro";
 ---
 
 <Layout title="The Neuronal Network of the Brain.">
   <main>
     <h1>Neuronal Brain <span class="text-gradient">Network</span></h1>
     <p>
-      To take a closer look at the data, select a Neuron on the left using your
-      mouse. Connected Neurons will be highlighted in the graph and you will
-      find timeseries visualisations on the right.
+      To take a closer look at the data, select a Neuron on the left using your mouse. Connected Neurons will be
+      highlighted in the graph and you will find timeseries visualisations on the right.
     </p>
     <div style="display: flex;">
-      <Graph />
+      <div>
+        <div id="switch"><span id="show-graph">Graph</span> || <span id="show-perspective">Perspective</span></div>
+        <Graph />
+        <Three />
+      </div>
       <Timeseries selector={[0, 200]} />
     </div>
     <!-- <p class="instructions">
@@ -77,10 +81,7 @@ import Timeseries from "../components/Timeseries.astro";
   .instructions {
     margin-bottom: 2rem;
     border: 1px solid rgba(var(--accent-light), 25%);
-    background: linear-gradient(
-      rgba(var(--accent-dark), 66%),
-      rgba(var(--accent-dark), 33%)
-    );
+    background: linear-gradient(rgba(var(--accent-dark), 66%), rgba(var(--accent-dark), 33%));
     padding: 1.5rem;
     border-radius: 8px;
   }
@@ -101,4 +102,24 @@ import Timeseries from "../components/Timeseries.astro";
     gap: 2rem;
     padding: 0;
   }
+
+  #switch span {
+    cursor: pointer;
+  }
 </style>
+
+<script>
+  var graph = document.getElementById("graph");
+  var perspective = document.getElementById("three-d-view");
+  perspective.style.display = "none";
+
+  document.getElementById("show-graph").addEventListener("click", () => {
+    perspective.style.display = "none";
+    graph.style.display = "inherit";
+  });
+  document.getElementById("show-perspective").addEventListener("click", () => {
+    perspective.style.display = "inherit";
+    graph.style.display = "none";
+    window.dispatchEvent(new Event("resize"));
+  });
+</script>

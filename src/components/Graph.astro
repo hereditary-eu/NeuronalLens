@@ -10,7 +10,7 @@ const { options } = Astro.props;
 // });
 ---
 
-<astro-graph data-plot-options={JSON.stringify(options)}>
+<astro-graph data-plot-options={JSON.stringify(options)} id="graph">
   <!-- <Fragment set:html={plottyplot.outerHTML} /> -->
 </astro-graph>
 
@@ -38,9 +38,7 @@ const { options } = Astro.props;
     };
   });
   var selectedPositions = getEveryNth(positions, 12);
-  const out_connections_at_t0 = (
-    await d3.dsv(" ", "/rank_0_step_0_out_network.txt")
-  ).map((d) => {
+  const out_connections_at_t0 = (await d3.dsv(" ", "/rank_0_step_0_out_network.txt")).map((d) => {
     // console.log(d);
     return {
       // ignore MPI ranks
@@ -57,8 +55,7 @@ const { options } = Astro.props;
     if (!Object.hasOwn(selected_neuron_connections, element.source_id)) {
       selected_neuron_connections[element.source_id] = {};
     }
-    selected_neuron_connections[element.source_id][element.target_id] =
-      element.weight;
+    selected_neuron_connections[element.source_id][element.target_id] = element.weight;
   }
 
   function selectNeuron(neuron) {
@@ -72,11 +69,7 @@ const { options } = Astro.props;
       selector.subscribe(() => {
         let selected_neuron = selector.get();
         let connectionHeuristic = (neuron) => {
-          return (
-            selected_neuron_connections[selected_neuron.local_id][
-              neuron.local_id
-            ] * 2 || 0.15
-          );
+          return selected_neuron_connections[selected_neuron.local_id][neuron.local_id] * 2 || 0.15;
         };
         const theplot = Plot.plot({
           marks: [
