@@ -14,7 +14,7 @@ import Three from "../components/Three.astro";
       highlighted in the graph and you will find timeseries visualisations on the right.
     </p>
     <div style="display: flex;">
-      <div>
+      <div class="left-container">
         <div id="switch"><span id="show-graph">Graph</span> || <span id="show-perspective">Perspective</span></div>
         <Graph />
         <Three />
@@ -103,6 +103,9 @@ import Three from "../components/Three.astro";
     padding: 0;
   }
 
+  .left-container {
+    width: 50vw;
+  }
   #switch span {
     cursor: pointer;
   }
@@ -111,7 +114,7 @@ import Three from "../components/Three.astro";
 <script>
   var graph = document.getElementById("graph");
   var perspective = document.getElementById("three-d-view");
-  perspective.style.display = "none";
+  graph.style.display = "none";
 
   document.getElementById("show-graph").addEventListener("click", () => {
     perspective.style.display = "none";

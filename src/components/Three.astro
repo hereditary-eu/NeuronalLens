@@ -7,18 +7,7 @@
 <script>
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-  import * as d3 from "d3";
-
-  const positions = (await d3.dsv(" ", "/rank_0_positions.txt")).map((d) => {
-    return {
-      local_id: +d.local_id,
-      x: +d.x,
-      z: +d.y,
-      y: +d.z,
-      area: d.area,
-      type: d.type,
-    };
-  });
+  import { positions, selector } from "./store";
 
   const viewport = document.getElementById("three-d-view");
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -54,19 +43,34 @@
     renderer.render(scene, camera);
   }
 
+  var originalBrainCenter = new THREE.Vector3();
   const scene = new THREE.Scene();
   const material = new THREE.LineBasicMaterial({ color: 0x00aaff });
-  const points = positions.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-  const geometry = new THREE.BufferGeometry().setFromPoints(points).center();
+  const points = positions.get().map((p) => new THREE.Vector3(p.x, p.y, p.z));
+  const uncentered = new THREE.BufferGeometry().setFromPoints(points);
+  uncentered.computeBoundingBox();
+  uncentered.boundingBox.getCenter(originalBrainCenter);
+  const geometry = uncentered.center();
   const line = new THREE.Points(geometry, material);
   scene.add(line);
+
+  selector.subscribe((newSelection) => {
+    console.log("New Selection", newSelection);
+    if (!newSelection.x) return;
+    const geometry = new THREE.SphereGeometry(2.5, 32, 16);
+    const material = new THREE.MeshBasicMaterial({ color: 0x5bba4a });
+    const sphere = new THREE.Mesh(geometry, material);
+    const p = originalBrainCenter.negate().add(new THREE.Vector3(newSelection.x, newSelection.y, newSelection.z));
+    geometry.translate(p.x, p.y, p.z);
+    scene.add(sphere);
+  });
 
   animate();
 </script>
 
 <style>
   #three-d-view {
-    width: 50vw;
-    height: 100%;
+    width: 100%;
+    height: 520px;
   }
 </style>

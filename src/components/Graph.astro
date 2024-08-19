@@ -17,7 +17,7 @@ const { options } = Astro.props;
 <script>
   import * as Plot from "@observablehq/plot";
   import * as d3 from "d3";
-  import { selector } from "./store";
+  import { positions, selector } from "./store";
 
   function getEveryNth(arr, nth) {
     const result = [];
@@ -27,17 +27,7 @@ const { options } = Astro.props;
     return result;
   }
 
-  const positions = (await d3.dsv(" ", "/rank_0_positions.txt")).map((d) => {
-    return {
-      local_id: +d.local_id,
-      x: +d.x,
-      y: +d.y,
-      z: +d.z,
-      area: d.area,
-      type: d.type,
-    };
-  });
-  var selectedPositions = getEveryNth(positions, 12);
+  var selectedPositions = getEveryNth(positions.get(), 12);
   const out_connections_at_t0 = (await d3.dsv(" ", "/rank_0_step_0_out_network.txt")).map((d) => {
     // console.log(d);
     return {
