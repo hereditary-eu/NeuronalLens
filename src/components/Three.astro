@@ -19,6 +19,16 @@
   camera.lookAt(0, 0, 0);
 
   const controls = new OrbitControls(camera, renderer.domElement);
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  pointer.set(0, 0);
+
+  function onPointerMove(event) {
+    // calculate pointer position in normalized device coordinates
+    // (-1 to +1) for both components
+    pointer.x = (event.clientX / viewport.clientWidth) * 2 - 1;
+    pointer.y = -(event.clientY / viewport.clientHeight) * 2 + 1;
+  }
 
   controls.enableDamping = true;
   controls.rotateSpeed = 1.4;
@@ -37,12 +47,6 @@
     false
   );
 
-  function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-  }
-
   var originalBrainCenter = new THREE.Vector3();
   const scene = new THREE.Scene();
   const material = new THREE.LineBasicMaterial({ color: 0x00aaff });
@@ -53,6 +57,19 @@
   const geometry = uncentered.center();
   const line = new THREE.Points(geometry, material);
   scene.add(line);
+
+  function render() {
+    requestAnimationFrame(render);
+
+    controls.update();
+    raycaster.setFromCamera(pointer, camera);
+    // const intersects = raycaster.intersectObjects(scene.children);
+    // console.log("intersects", intersects);
+    // for (let i = 0; i < intersects.length; i++) {
+    //   intersects[i].object.material.color.set(0xff0000);
+    // }
+    renderer.render(scene, camera);
+  }
 
   selector.subscribe((newSelection) => {
     console.log("New Selection", newSelection);
@@ -65,7 +82,9 @@
     scene.add(sphere);
   });
 
-  animate();
+  viewport.addEventListener("pointermove", onPointerMove);
+
+  render();
 </script>
 
 <style>
