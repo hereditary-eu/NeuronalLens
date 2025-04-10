@@ -54,8 +54,8 @@
   const uncentered = new THREE.BufferGeometry().setFromPoints(points);
   uncentered.computeBoundingBox();
   uncentered.boundingBox.getCenter(originalBrainCenter);
-  const geometry = uncentered.center();
-  const line = new THREE.Points(geometry, material);
+  const brainGeometry = uncentered.center();
+  const line = new THREE.Points(brainGeometry, material);
   scene.add(line);
 
   function render() {
@@ -74,12 +74,15 @@
   selector.subscribe((newSelection) => {
     console.log("New Selection", newSelection);
     if (!newSelection.x) return;
+
     const geometry = new THREE.SphereGeometry(2.5, 32, 16);
     const material = new THREE.MeshBasicMaterial({ color: 0x5bba4a });
     const sphere = new THREE.Mesh(geometry, material);
     const p = originalBrainCenter.negate().add(new THREE.Vector3(newSelection.x, newSelection.y, newSelection.z));
     geometry.translate(p.x, p.y, p.z);
     scene.add(sphere);
+
+    // brainGeometry.applyMatrix4(new THREE.Matrix4().makeScale(0.2, 0.2, 0.5));
   });
 
   viewport.addEventListener("pointermove", onPointerMove);
