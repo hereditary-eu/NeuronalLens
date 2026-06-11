@@ -27,7 +27,7 @@
   const resetBtn = document.getElementById("reset-explosion")!;
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setSize(viewport.clientWidth, viewport.clientHeight);
   viewport.appendChild(renderer.domElement);
 
