@@ -61,15 +61,21 @@
   });
 
   // Compute brain center from raw positions
-  let sumX = 0, sumY = 0, sumZ = 0;
-  for (const n of neurons) { sumX += n.x; sumY += n.y; sumZ += n.z; }
+  let sumX = 0,
+    sumY = 0,
+    sumZ = 0;
+  for (const n of neurons) {
+    sumX += n.x;
+    sumY += n.y;
+    sumZ += n.z;
+  }
   const brainCenter = new THREE.Vector3(sumX / neurons.length, sumY / neurons.length, sumZ / neurons.length);
 
   // Build area data: center + mean direction from world center
   interface AreaData {
     center: THREE.Vector3;
     direction: THREE.Vector3; // normalized avg direction from brain center
-    indices: number[];        // indices into neurons array
+    indices: number[]; // indices into neurons array
   }
   const areaMap = new Map<string, AreaData>();
   for (let i = 0; i < neurons.length; i++) {
@@ -79,7 +85,9 @@
     }
     const ad = areaMap.get(n.area)!;
     ad.indices.push(i);
-    ad.center.x += n.x; ad.center.y += n.y; ad.center.z += n.z;
+    ad.center.x += n.x;
+    ad.center.y += n.y;
+    ad.center.z += n.z;
   }
   for (const [, ad] of areaMap) {
     const len = ad.indices.length;
@@ -101,8 +109,8 @@
   for (let i = 0; i < neurons.length; i++) {
     const n = neurons[i]!;
     const cx = n.x - brainCenter.x;
-    const cy = n.y - brainCenter.y;
-    const cz = n.z - brainCenter.z;
+    const cy = n.z - brainCenter.y;
+    const cz = n.y - brainCenter.z;
     basePositions[i * 3] = cx;
     basePositions[i * 3 + 1] = cy;
     basePositions[i * 3 + 2] = cz;

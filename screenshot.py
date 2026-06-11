@@ -171,9 +171,9 @@ save_screenshot_pdf("graph-view.pdf")
 driver.find_element(By.CSS_SELECTOR, "#show-perspective").click()
 time.sleep(4)  # let positions load + Three.js render + auto-rotate settle
 
-save_screenshot_pdf("perspective_overview.pdf")
-screenshot_element_pdf("#three-d-view", "perspective_3d.pdf")
-screenshot_element_pdf("#three-controls", "perspective_controls.pdf")
+save_screenshot_pdf("perspective-overview.pdf")
+screenshot_element_pdf("#three-d-view", "perspective-3d.pdf")
+screenshot_element_pdf("#three-controls", "perspective-controls.pdf")
 
 driver.close()
 driver.quit()
