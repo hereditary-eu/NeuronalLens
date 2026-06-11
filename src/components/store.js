@@ -11,7 +11,7 @@ export const positions = atom(
       area: d.area,
       type: d.type,
     };
-  })
+  }),
 );
 
-export const selector = atom({ local_id: 1 });
+export const selector = atom({ local_id: 1, x: null, y: null, z: null, area: null, type: null });
