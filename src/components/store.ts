@@ -24,8 +24,8 @@ export const positions = atom<NeuronPosition[]>(
     return {
       local_id: +(d["local_id"] ?? 0),
       x: +(d["x"] ?? 0),
-      y: +(d["y"] ?? 0),
-      z: +(d["z"] ?? 0),
+      y: +(d["z"] ?? 0),
+      z: +(d["y"] ?? 0),
       area: d["area"] ?? "",
       type: d["type"] ?? "",
     };

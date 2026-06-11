@@ -109,8 +109,8 @@
   for (let i = 0; i < neurons.length; i++) {
     const n = neurons[i]!;
     const cx = n.x - brainCenter.x;
-    const cy = n.z - brainCenter.y;
-    const cz = n.y - brainCenter.z;
+    const cy = n.y - brainCenter.y;
+    const cz = n.z - brainCenter.z;
     basePositions[i * 3] = cx;
     basePositions[i * 3 + 1] = cy;
     basePositions[i * 3 + 2] = cz;

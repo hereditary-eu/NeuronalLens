@@ -114,7 +114,6 @@ def screenshot_element_png(css_selector: str, filename: str) -> None:
 def screenshot_element_pdf(css_selector: str, filename: str) -> None:
     """Crop a PDF to the bounding rect of a DOM element (DOM/SVG content only)."""
     try:
-        time.sleep(4)
         data = driver.execute_cdp_cmd("Page.printToPDF", PDF_PARAMS)
         pdf_bytes = base64.b64decode(data["data"])
 
@@ -160,16 +159,16 @@ print(f"WebGL available: {webgl_ok}")
 
 # ── Graph view (PDF — pure DOM/SVG) ──────────────────────────────────────────
 driver.get("http://localhost:4321")
-time.sleep(1)
+# time.sleep(1)
 
 driver.find_element(By.CSS_SELECTOR, "#show-graph").click()
-time.sleep(2)
+# time.sleep(2)
 
 save_screenshot_pdf("graph-view.pdf")
 
 # ── Perspective view (PNG — WebGL canvas) ────────────────────────────────────
 driver.find_element(By.CSS_SELECTOR, "#show-perspective").click()
-time.sleep(4)  # let positions load + Three.js render + auto-rotate settle
+# time.sleep(4)  # let positions load + Three.js render + auto-rotate settle
 
 save_screenshot_pdf("perspective-overview.pdf")
 screenshot_element_pdf("#three-d-view", "perspective-3d.pdf")

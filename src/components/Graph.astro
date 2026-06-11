@@ -52,12 +52,12 @@
           marks: [
             Plot.delaunayMesh(selectedPositions, {
               x: "x",
-              y: "z",
+              y: "y",
               strokeOpacity: 0.5,
             }),
             Plot.dot(selectedPositions, {
               x: "x",
-              y: "z",
+              y: "y",
               tip: "xy",
               fill: (n: NeuronPosition) => (connectionHeuristic(n) === 0 ? "black" : "white"),
               r: (n: NeuronPosition) => connectionHeuristic(n) * 2 || 0.15,
