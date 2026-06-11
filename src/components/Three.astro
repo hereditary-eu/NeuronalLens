@@ -2,14 +2,31 @@
 
 ---
 
+<div id="three-controls">
+  <label for="explosion-slider">Explosion: <span id="explosion-value">1.00</span></label>
+  <input id="explosion-slider" type="range" min="0.8" max="1.2" step="0.01" value="1.0" />
+  <label>
+    <input id="explosion-mode" type="checkbox" />
+    Directional explosion
+  </label>
+  <button id="reset-explosion">Reset</button>
+</div>
 <div id="three-d-view"></div>
 
 <script>
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   import { positions, selector } from "./store";
+  import type { NeuronPosition } from "./store";
 
+  // ── DOM refs ─────────────────────────────────────────────────────────────
   const viewport = document.getElementById("three-d-view")!;
+  const slider = document.getElementById("explosion-slider") as HTMLInputElement;
+  const valueLabel = document.getElementById("explosion-value")!;
+  const modeCheckbox = document.getElementById("explosion-mode") as HTMLInputElement;
+  const resetBtn = document.getElementById("reset-explosion")!;
+
+  // ── Renderer / camera / controls ─────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(viewport.clientWidth, viewport.clientHeight);
   viewport.appendChild(renderer.domElement);
@@ -19,17 +36,6 @@
   camera.lookAt(0, 0, 0);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
-  pointer.set(0, 0);
-
-  function onPointerMove(event) {
-    // calculate pointer position in normalized device coordinates
-    // (-1 to +1) for both components
-    pointer.x = (event.clientX / viewport.clientWidth) * 2 - 1;
-    pointer.y = -(event.clientY / viewport.clientHeight) * 2 + 1;
-  }
-
   controls.enableDamping = true;
   controls.rotateSpeed = 1.4;
   controls.dampingFactor = 0.9;
@@ -37,60 +43,217 @@
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.9;
 
-  window.addEventListener(
-    "resize",
-    () => {
-      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-      camera.aspect = viewport.clientWidth / viewport.clientHeight;
-      camera.updateProjectionMatrix();
-    },
-    false,
-  );
-
-  var originalBrainCenter = new THREE.Vector3();
-  const scene = new THREE.Scene();
-  const material = new THREE.LineBasicMaterial({ color: 0xffffff });
-  const points = positions.get().map((p) => new THREE.Vector3(p.x, p.y, p.z));
-  const uncentered = new THREE.BufferGeometry().setFromPoints(points);
-  uncentered.computeBoundingBox();
-  uncentered.boundingBox!.getCenter(originalBrainCenter);
-  const brainGeometry = uncentered.center();
-  const line = new THREE.Points(brainGeometry, material);
-  scene.add(line);
-
-  function render() {
-    requestAnimationFrame(render);
-
-    controls.update();
-    raycaster.setFromCamera(pointer, camera);
-    // const intersects = raycaster.intersectObjects(scene.children);
-    // console.log("intersects", intersects);
-    // for (let i = 0; i < intersects.length; i++) {
-    //   intersects[i].object.material.color.set(0xff0000);
-    // }
-    renderer.render(scene, camera);
-  }
-
-  selector.subscribe((newSelection) => {
-    console.log("New Selection", newSelection);
-    if (!newSelection.x) return;
-
-    const geometry = new THREE.SphereGeometry(2.5, 32, 16);
-    const material = new THREE.MeshBasicMaterial({ color: 0x5bba4a });
-    const sphere = new THREE.Mesh(geometry, material);
-    const p = originalBrainCenter.negate().add(new THREE.Vector3(newSelection.x, newSelection.y, newSelection.z));
-    geometry.translate(p.x, p.y, p.z);
-    scene.add(sphere);
-
-    // brainGeometry.applyMatrix4(new THREE.Matrix4().makeScale(0.2, 0.2, 0.5));
+  window.addEventListener("resize", () => {
+    renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    camera.aspect = viewport.clientWidth / viewport.clientHeight;
+    camera.updateProjectionMatrix();
   });
 
-  viewport.addEventListener("pointermove", onPointerMove);
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const neurons = positions.get();
 
+  // Collect unique areas and assign colors
+  const uniqueAreas = Array.from(new Set(neurons.map((n) => n.area)));
+  const areaColorMap = new Map<string, THREE.Color>();
+  uniqueAreas.forEach((area, i) => {
+    const hue = i / uniqueAreas.length;
+    areaColorMap.set(area, new THREE.Color().setHSL(hue, 0.85, 0.55));
+  });
+
+  // Compute brain center from raw positions
+  let sumX = 0, sumY = 0, sumZ = 0;
+  for (const n of neurons) { sumX += n.x; sumY += n.y; sumZ += n.z; }
+  const brainCenter = new THREE.Vector3(sumX / neurons.length, sumY / neurons.length, sumZ / neurons.length);
+
+  // Build area data: center + mean direction from world center
+  interface AreaData {
+    center: THREE.Vector3;
+    direction: THREE.Vector3; // normalized avg direction from brain center
+    indices: number[];        // indices into neurons array
+  }
+  const areaMap = new Map<string, AreaData>();
+  for (let i = 0; i < neurons.length; i++) {
+    const n = neurons[i]!;
+    if (!areaMap.has(n.area)) {
+      areaMap.set(n.area, { center: new THREE.Vector3(), direction: new THREE.Vector3(), indices: [] });
+    }
+    const ad = areaMap.get(n.area)!;
+    ad.indices.push(i);
+    ad.center.x += n.x; ad.center.y += n.y; ad.center.z += n.z;
+  }
+  for (const [, ad] of areaMap) {
+    const len = ad.indices.length;
+    ad.center.divideScalar(len);
+    ad.direction.copy(ad.center).sub(brainCenter).normalize();
+  }
+
+  // Per-area explosion factor (default 1.0 = no explosion)
+  const areaFactor = new Map<string, number>();
+  for (const area of uniqueAreas) areaFactor.set(area, 1.0);
+
+  // ── Build geometry with vertex colors ────────────────────────────────────
+  const posArray = new Float32Array(neurons.length * 3);
+  const colArray = new Float32Array(neurons.length * 3);
+
+  // Store base (centered) positions for explosion math
+  const basePositions = new Float32Array(neurons.length * 3);
+
+  for (let i = 0; i < neurons.length; i++) {
+    const n = neurons[i]!;
+    const cx = n.x - brainCenter.x;
+    const cy = n.y - brainCenter.y;
+    const cz = n.z - brainCenter.z;
+    basePositions[i * 3] = cx;
+    basePositions[i * 3 + 1] = cy;
+    basePositions[i * 3 + 2] = cz;
+    posArray[i * 3] = cx;
+    posArray[i * 3 + 1] = cy;
+    posArray[i * 3 + 2] = cz;
+
+    const color = areaColorMap.get(n.area) ?? new THREE.Color(1, 1, 1);
+    colArray[i * 3] = color.r;
+    colArray[i * 3 + 1] = color.g;
+    colArray[i * 3 + 2] = color.b;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  const posAttribute = new THREE.BufferAttribute(posArray, 3);
+  posAttribute.setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute("position", posAttribute);
+  geometry.setAttribute("color", new THREE.BufferAttribute(colArray, 3));
+
+  const material = new THREE.PointsMaterial({ size: 1.5, vertexColors: true, sizeAttenuation: true });
+  const pointCloud = new THREE.Points(geometry, material);
+
+  const scene = new THREE.Scene();
+  scene.add(pointCloud);
+
+  // ── Explosion logic ───────────────────────────────────────────────────────
+  function applyExplosion(globalFactor: number) {
+    const pos = geometry.attributes["position"]!;
+    for (let i = 0; i < neurons.length; i++) {
+      const n = neurons[i]!;
+      const factor = areaFactor.get(n.area) ?? 1.0;
+      const bx = basePositions[i * 3]!;
+      const by = basePositions[i * 3 + 1]!;
+      const bz = basePositions[i * 3 + 2]!;
+
+      if (modeCheckbox.checked) {
+        // Directional: move along area's average direction from brain center
+        const ad = areaMap.get(n.area)!;
+        const scale = (factor - 1.0) * 80 * globalFactor; // 80 = max displacement units
+        pos.setXYZ(i, bx + ad.direction.x * scale, by + ad.direction.y * scale, bz + ad.direction.z * scale);
+      } else {
+        // Radial: scale position relative to area center (centered)
+        const ad = areaMap.get(n.area)!;
+        const acx = ad.center.x - brainCenter.x;
+        const acy = ad.center.y - brainCenter.y;
+        const acz = ad.center.z - brainCenter.z;
+        // Move node relative to its area center, then shift area center by factor
+        const relX = bx - acx;
+        const relY = by - acy;
+        const relZ = bz - acz;
+        const eff = factor * globalFactor;
+        pos.setXYZ(i, acx * eff + relX, acy * eff + relY, acz * eff + relZ);
+      }
+    }
+    (pos as THREE.BufferAttribute).needsUpdate = true;
+  }
+
+  let globalFactor = 1.0;
+
+  slider.addEventListener("input", () => {
+    globalFactor = parseFloat(slider.value);
+    valueLabel.textContent = globalFactor.toFixed(2);
+    applyExplosion(globalFactor);
+  });
+
+  modeCheckbox.addEventListener("change", () => applyExplosion(globalFactor));
+
+  resetBtn.addEventListener("click", () => {
+    for (const area of uniqueAreas) areaFactor.set(area, 1.0);
+    slider.value = "1.0";
+    globalFactor = 1.0;
+    valueLabel.textContent = "1.00";
+    applyExplosion(1.0);
+  });
+
+  // ── Raycaster for area click ──────────────────────────────────────────────
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Points = { threshold: 2 };
+  const pointer = new THREE.Vector2();
+
+  viewport.addEventListener("pointermove", (event) => {
+    const rect = viewport.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  });
+
+  viewport.addEventListener("click", () => {
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObject(pointCloud);
+    if (intersects.length > 0) {
+      const idx = intersects[0]!.index ?? -1;
+      if (idx >= 0) {
+        const clickedArea = neurons[idx]?.area;
+        if (clickedArea) {
+          // Explode clicked area, reset all others
+          for (const area of uniqueAreas) areaFactor.set(area, area === clickedArea ? 1.2 : 1.0);
+          applyExplosion(globalFactor);
+        }
+      }
+    }
+  });
+
+  // ── Selection sphere ──────────────────────────────────────────────────────
+  selector.subscribe((newSelection) => {
+    if (!newSelection.x) return;
+    const geo = new THREE.SphereGeometry(2.5, 32, 16);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x5bba4a });
+    const sphere = new THREE.Mesh(geo, mat);
+    const p = new THREE.Vector3(
+      newSelection.x - brainCenter.x,
+      newSelection.y! - brainCenter.y,
+      newSelection.z! - brainCenter.z,
+    );
+    geo.translate(p.x, p.y, p.z);
+    scene.add(sphere);
+  });
+
+  // ── Render loop ───────────────────────────────────────────────────────────
+  function render() {
+    requestAnimationFrame(render);
+    controls.update();
+    renderer.render(scene, camera);
+  }
   render();
 </script>
 
 <style>
+  #three-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    color: white;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+  }
+
+  #explosion-slider {
+    width: 140px;
+    accent-color: rgb(var(--accent-light, 100 108 255));
+  }
+
+  #reset-explosion {
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+  }
+
   #three-d-view {
     width: 100%;
     height: 520px;

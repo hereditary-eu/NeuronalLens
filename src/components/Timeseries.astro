@@ -1,85 +1,71 @@
 ---
-// import * as Plot from "@observablehq/plot";
-// import { JSDOM } from "jsdom";
-
-const { options } = Astro.props;
-// const jsdom = new JSDOM();
-// const plottyplot = Plot.plot({
-//   ...options,
-// document: jsdom.window._document,
-// });
+// Timeseries component – per-neuron monitor plots using Observable Plot
 ---
 
-<astro-timeseries data-plot-options={JSON.stringify(options)}>
-  <!-- <Fragment set:html={plottyplot.outerHTML} /> -->
-</astro-timeseries>
+<astro-timeseries></astro-timeseries>
 
 <script>
   import * as Plot from "@observablehq/plot";
   import * as d3 from "d3";
   import { selector } from "./store";
 
+  interface MonitorRow {
+    step: number;
+    fired: number;
+    fired_fraction: number;
+    activity: number;
+    dampening: number;
+    current_calcium: number;
+    target_calcium: number;
+    synaptic_input: number;
+    background_input: number;
+    grown_axons: number;
+    connected_axons: number;
+    grown_dendrites: number;
+    connected_dendrites: number;
+  }
+
   class AstroTimeseries extends HTMLElement {
     constructor() {
       super();
       selector.subscribe(async (neuron) => {
-        const monitorCsv = await (
-          await fetch(`/monitors/0_${neuron.local_id}.csv`)
-        ).text();
-        console.log("rerender");
-        const monitor = d3.dsvFormat(";").parseRows(monitorCsv, (row) => {
-          return {
-            step: +row[0],
-            fired: +row[1],
-            fired_fraction: +row[2],
-            activity: +row[3],
-            dampening: +row[4],
-            current_calcium: +row[5],
-            target_calcium: +row[6],
-            synaptic_input: +row[7],
-            background_input: +row[8],
-            grown_axons: +row[9],
-            connected_axons: +row[10],
-            grown_dendrites: +row[11],
-            connected_dendrites: +row[12],
-          };
-        });
-        // console.log(monitor);
+        const monitorCsv = await (await fetch(`/monitors/0_${neuron.local_id}.csv`)).text();
+        const monitor = d3.dsvFormat(";").parseRows(monitorCsv, (row): MonitorRow => ({
+          step: +(row[0] ?? 0),
+          fired: +(row[1] ?? 0),
+          fired_fraction: +(row[2] ?? 0),
+          activity: +(row[3] ?? 0),
+          dampening: +(row[4] ?? 0),
+          current_calcium: +(row[5] ?? 0),
+          target_calcium: +(row[6] ?? 0),
+          synaptic_input: +(row[7] ?? 0),
+          background_input: +(row[8] ?? 0),
+          grown_axons: +(row[9] ?? 0),
+          connected_axons: +(row[10] ?? 0),
+          grown_dendrites: +(row[11] ?? 0),
+          connected_dendrites: +(row[12] ?? 0),
+        }));
+
         this.innerHTML = "";
         this.appendChild(
           Plot.plot({
-            marks: [
-              Plot.lineY(monitor.slice(0, 400), {
-                x: "step",
-                y: "activity",
-                z: null,
-                stroke: "dampening",
-                tip: "x",
-              }),
-            ],
+            marks: [Plot.lineY(monitor.slice(0, 400), { x: "step", y: "activity", z: null, stroke: "dampening", tip: "x" })],
             width: 900,
             height: 300,
             style: "--plot-background: black",
-          })
+          }),
         );
         this.appendChild(
           Plot.plot({
-            marks: [
-              Plot.lineY(monitor.slice(0, 400), {
-                x: "step",
-                y: "dampening",
-                z: null,
-                stroke: "dampening",
-                tip: "x",
-              }),
-            ],
+            marks: [Plot.lineY(monitor.slice(0, 400), { x: "step", y: "dampening", z: null, stroke: "dampening", tip: "x" })],
             width: 900,
             height: 300,
             style: "--plot-background: black",
-          })
+          }),
         );
       });
     }
   }
+
   customElements.define("astro-timeseries", AstroTimeseries);
 </script>

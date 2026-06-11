@@ -1,55 +1,41 @@
 ---
-// import * as Plot from "@observablehq/plot";
-// import { JSDOM } from "jsdom";
-
-const { options } = Astro.props;
-// const jsdom = new JSDOM();
-// const plottyplot = Plot.plot({
-//   ...options,
-// document: jsdom.window._document,
-// });
+// Graph component – 2D scatter of neuron positions using Observable Plot
 ---
 
-<astro-graph data-plot-options={JSON.stringify(options)} id="graph">
-  <!-- <Fragment set:html={plottyplot.outerHTML} /> -->
-</astro-graph>
+<astro-graph id="graph"></astro-graph>
 
 <script>
   import * as Plot from "@observablehq/plot";
   import * as d3 from "d3";
   import { positions, selector } from "./store";
+  import type { NeuronPosition } from "./store";
 
-  function getEveryNth(arr, nth) {
-    const result = [];
+  function getEveryNth<T>(arr: T[], nth: number): T[] {
+    const result: T[] = [];
     for (let index = 0; index < arr.length; index += nth) {
-      result.push(arr[index]);
+      result.push(arr[index]!);
     }
     return result;
   }
 
-  var selectedPositions = getEveryNth(positions.get(), 12);
-  const out_connections_at_t0 = (await d3.dsv(" ", "/rank_0_step_0_out_network.txt")).map((d) => {
-    // console.log(d);
-    return {
-      // ignore MPI ranks
-      source_id: +d.source_id,
-      target_id: +d.target_id,
-      weight: +d.weight,
-    };
-  });
-  console.log(out_connections_at_t0);
+  const selectedPositions = getEveryNth(positions.get(), 12);
 
-  var selected_neuron_connections = {};
-  for (let i = 0; i < out_connections_at_t0.length; i++) {
-    const element = out_connections_at_t0[i];
-    if (!Object.hasOwn(selected_neuron_connections, element.source_id)) {
-      selected_neuron_connections[element.source_id] = {};
+  const rawConnections = await d3.dsv(" ", "/rank_0_step_0_out_network.txt");
+  const outConnections = rawConnections.map((d) => ({
+    source_id: +(d["source_id"] ?? 0),
+    target_id: +(d["target_id"] ?? 0),
+    weight: +(d["weight"] ?? 0),
+  }));
+
+  const selectedNeuronConnections: Record<number, Record<number, number>> = {};
+  for (const conn of outConnections) {
+    if (!selectedNeuronConnections[conn.source_id]) {
+      selectedNeuronConnections[conn.source_id] = {};
     }
-    selected_neuron_connections[element.source_id][element.target_id] = element.weight;
+    selectedNeuronConnections[conn.source_id]![conn.target_id] = conn.weight;
   }
 
-  function selectNeuron(neuron) {
-    // console.log(selected_neuron_connections);
+  function selectNeuron(neuron: NeuronPosition) {
     selector.set(neuron);
   }
 
@@ -57,25 +43,24 @@ const { options } = Astro.props;
     constructor() {
       super();
       selector.subscribe(() => {
-        let selected_neuron = selector.get();
-        let connectionHeuristic = (neuron) => {
-          return selected_neuron_connections[selected_neuron.local_id][neuron.local_id] * 2 || 0.15;
+        const selected = selector.get();
+        const connectionHeuristic = (neuron: NeuronPosition): number => {
+          return selectedNeuronConnections[selected.local_id]?.[neuron.local_id] ?? 0;
         };
+
         const theplot = Plot.plot({
           marks: [
             Plot.delaunayMesh(selectedPositions, {
               x: "x",
               y: "z",
               strokeOpacity: 0.5,
-              // tip: "xy",
             }),
             Plot.dot(selectedPositions, {
               x: "x",
               y: "z",
               tip: "xy",
-              fill: (n) => (connectionHeuristic(n) == 0.15 ? "black" : "white"),
-              r: connectionHeuristic,
-              // stroke: connectionHeuristic,
+              fill: (n: NeuronPosition) => (connectionHeuristic(n) === 0 ? "black" : "white"),
+              r: (n: NeuronPosition) => connectionHeuristic(n) * 2 || 0.15,
               stroke: "area",
             }),
           ],
@@ -83,15 +68,17 @@ const { options } = Astro.props;
           height: 600,
           style: "--plot-background: black",
         });
+
         this.innerHTML = "";
         this.appendChild(theplot);
-        theplot.addEventListener("click", (ev) => {
-          // console.log(theplot.value);
-          if (theplot.value !== null) selectNeuron(theplot.value);
+        theplot.addEventListener("click", () => {
+          const val = (theplot as HTMLElement & { value: NeuronPosition | null }).value;
+          if (val !== null && val !== undefined) selectNeuron(val);
         });
       });
     }
   }
+
   customElements.define("astro-graph", AstroGraph);
-  selectNeuron(selectedPositions[0]);
+  if (selectedPositions[0]) selectNeuron(selectedPositions[0]);
 </script>
