@@ -37,6 +37,10 @@
     <input id="rotate-toggle" type="checkbox" checked />
     Rotate
   </label>
+  <label>
+    <input id="area-select-toggle" type="checkbox" checked />
+    Area select
+  </label>
   <span id="sim-loading" style="color:#aaa;font-size:0.8rem"></span>
 </div>
 <div id="three-d-view"></div>
@@ -45,7 +49,7 @@
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   import NpyLoader from "npyjs";
-  import { positions, selector, currentTime, fetchNetwork } from "./models";
+  import { positions, selector, currentTime, fetchNetwork, networkStepFor } from "./models";
 
   // ── DOM refs ──────────────────────────────────────────────────────────────
   const viewport = document.getElementById("three-d-view")!;
@@ -57,7 +61,8 @@
   const selOverlay = document.getElementById("sel-overlay") as HTMLSelectElement;
   const selSize = document.getElementById("sel-size") as HTMLSelectElement;
   const simLoading = document.getElementById("sim-loading")!;
-  const rotateToggle = document.getElementById("rotate-toggle") as HTMLInputElement;;
+  const rotateToggle = document.getElementById("rotate-toggle") as HTMLInputElement;
+  const areaSelectToggle = document.getElementById("area-select-toggle") as HTMLInputElement;
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({
@@ -234,8 +239,8 @@
   let outNeighbours = new Set<number>();
   let inNeighbours = new Set<number>();
 
-  async function loadAndDrawConnections(neuronLocalId: number) {
-    const { out, inn } = await fetchNetwork();
+  async function loadAndDrawConnections(neuronLocalId: number, time = currentTime.get()) {
+    const { out, inn } = await fetchNetwork(time);
     outNeighbours = new Set((out.get(neuronLocalId) ?? []).map((c) => c.target_id));
     inNeighbours = new Set((inn.get(neuronLocalId) ?? []).map((c) => c.source_id));
     updateConnectionLines();
@@ -395,7 +400,8 @@
     if (selectedNeuronIdx >= 0) updateConnectionLines();
   }
 
-  let globalFactor = 1.0;
+  let globalFactor = parseFloat(slider.value);
+  valueLabel.textContent = globalFactor.toFixed(2);
 
   function refresh() {
     applyVisuals(currentTime.get());
@@ -443,7 +449,16 @@
   selOverlay.addEventListener("change", refresh);
   selSize.addEventListener("change", refresh);
 
-  currentTime.subscribe(() => refresh());
+  let lastNetworkStep = networkStepFor(currentTime.get());
+
+  currentTime.subscribe((t) => {
+    refresh();
+    const step = networkStepFor(t);
+    if (step !== lastNetworkStep && selectedNeuronIdx >= 0) {
+      lastNetworkStep = step;
+      loadAndDrawConnections(neurons[selectedNeuronIdx]!.local_id, t);
+    }
+  });
 
   // ── Explosion controls ────────────────────────────────────────────────────
   slider.addEventListener("input", () => {
@@ -504,9 +519,11 @@
     if (intersects.length > 0) {
       const idx = intersects[0]!.index ?? -1;
       if (idx >= 0) {
-        const clickedArea = neurons[idx]?.area;
-        if (clickedArea) {
-          for (const area of uniqueAreas) areaFactor.set(area, area === clickedArea ? 1.2 : 1.0);
+        if (areaSelectToggle.checked) {
+          const clickedArea = neurons[idx]?.area;
+          if (clickedArea) {
+            for (const area of uniqueAreas) areaFactor.set(area, area === clickedArea ? 1.2 : 1.0);
+          }
         }
         // Select neuron and load connections
         selectedNeuronIdx = idx;

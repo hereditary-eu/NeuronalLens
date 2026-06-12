@@ -114,44 +114,57 @@ export function monitorRowAt(rows: MonitorRow[], time: number): MonitorRow | und
 }
 
 // ── Network data ──────────────────────────────────────────────────────────────
-let networkCache: NetworkData | null = null;
 
-export async function fetchNetwork(): Promise<NetworkData> {
-  if (networkCache) return networkCache;
+/** Available network snapshot steps (files copied to public/). */
+const NETWORK_STEPS = [0, 10000, 20000, 30000, 40000];
 
-  const parseFile = (text: string): ConnRow[] => {
-    // header: "target_rank target_id source_rank source_id weight"
-    return text
-      .trim()
-      .split("\n")
-      .slice(1)
-      .map((line) => {
-        const p = line.trim().split(/\s+/);
-        return {
-          source_id: parseInt(p[3]!),
-          target_id: parseInt(p[1]!),
-          weight:    parseFloat(p[4]!),
-        };
-      });
-  };
+/** Snap a currentTime value to the nearest available network step. */
+export function networkStepFor(time: number): number {
+  return NETWORK_STEPS.reduce((best, s) =>
+    Math.abs(s - time) < Math.abs(best - time) ? s : best
+  );
+}
+
+const networkCache = new Map<number, NetworkData>();
+
+const parseNetworkFile = (text: string): ConnRow[] => {
+  // header: "target_rank target_id source_rank source_id weight"
+  return text
+    .trim()
+    .split("\n")
+    .slice(1)
+    .map((line) => {
+      const p = line.trim().split(/\s+/);
+      return {
+        source_id: parseInt(p[3]!),
+        target_id: parseInt(p[1]!),
+        weight:    parseFloat(p[4]!),
+      };
+    });
+};
+
+export async function fetchNetwork(time = 0): Promise<NetworkData> {
+  const step = networkStepFor(time);
+  if (networkCache.has(step)) return networkCache.get(step)!;
 
   const [outText, inText] = await Promise.all([
-    fetch("/rank_0_step_0_out_network.txt").then((r) => r.text()),
-    fetch("/rank_0_step_0_in_network.txt").then((r) => r.text()),
+    fetch(`/rank_0_step_${step}_out_network.txt`).then((r) => r.text()),
+    fetch(`/rank_0_step_${step}_in_network.txt`).then((r) => r.text()),
   ]);
 
   const out = new Map<number, ConnRow[]>();
   const inn = new Map<number, ConnRow[]>();
 
-  for (const row of parseFile(outText)) {
+  for (const row of parseNetworkFile(outText)) {
     if (!out.has(row.source_id)) out.set(row.source_id, []);
     out.get(row.source_id)!.push(row);
   }
-  for (const row of parseFile(inText)) {
+  for (const row of parseNetworkFile(inText)) {
     if (!inn.has(row.target_id)) inn.set(row.target_id, []);
     inn.get(row.target_id)!.push(row);
   }
 
-  networkCache = { out, inn };
-  return networkCache;
+  const data: NetworkData = { out, inn };
+  networkCache.set(step, data);
+  return data;
 }

@@ -141,7 +141,7 @@
 </style>
 
 <script>
-  import { selector, currentTime, positions, fetchMonitor, fetchNetwork, monitorRowAt } from "./models";
+  import { selector, currentTime, positions, fetchMonitor, fetchNetwork, monitorRowAt, networkStepFor } from "./models";
   import type { Selection, MonitorRow, ConnRow } from "./models";
 
   const empty = document.getElementById("meta-empty")!;
@@ -230,19 +230,27 @@
     metaPosition.innerHTML = [kv("x", neuron.x), kv("y", neuron.y), kv("z", neuron.z)].join("");
 
     // Load monitor & network in parallel
-    const [rows, net] = await Promise.all([fetchMonitor(neuron.local_id), fetchNetwork()]);
+    const [rows, net] = await Promise.all([fetchMonitor(neuron.local_id), fetchNetwork(currentTime.get())]);
     network = net;
     monitorRows = rows;
     renderMetrics(monitorRows, currentTime.get());
     renderConnections(neuron.local_id);
   }
 
+  let lastNetworkStep = networkStepFor(currentTime.get());
+
   class AstroMetadata extends HTMLElement {
     constructor() {
       super();
       selector.subscribe((sel) => onSelection(sel));
-      currentTime.subscribe((t) => {
+      currentTime.subscribe(async (t) => {
         if (monitorRows.length > 0) renderMetrics(monitorRows, t);
+        const step = networkStepFor(t);
+        if (step !== lastNetworkStep && currentSel) {
+          lastNetworkStep = step;
+          network = await fetchNetwork(t);
+          renderConnections(currentSel.local_id);
+        }
       });
     }
   }
