@@ -41,7 +41,9 @@
     Click:
     <label><input type="radio" name="click-mode" value="area" checked /> Area select</label>
     <label><input type="radio" name="click-mode" value="lens" /> Lens</label>
-    <label id="two-level-label" style="display:none"><input id="two-level-toggle" type="checkbox" checked /> 2-level</label>
+    <label id="two-level-label" style="display:none"
+      ><input id="two-level-toggle" type="checkbox" checked /> 2-level</label
+    >
   </span>
   <span id="sim-loading" style="color:#aaa;font-size:0.8rem"></span>
 </div>
@@ -65,7 +67,7 @@
   const simLoading = document.getElementById("sim-loading")!;
   const rotateToggle = document.getElementById("rotate-toggle") as HTMLInputElement;
   const clickModeRadios = document.querySelectorAll<HTMLInputElement>("input[name='click-mode']");
-  const clickMode = () => (document.querySelector<HTMLInputElement>("input[name='click-mode']:checked")?.value ?? "area");
+  const clickMode = () => document.querySelector<HTMLInputElement>("input[name='click-mode']:checked")?.value ?? "area";
   const twoLevelLabel = document.getElementById("two-level-label") as HTMLElement;
   const twoLevelToggle = document.getElementById("two-level-toggle") as HTMLInputElement;
 
@@ -94,16 +96,18 @@
     controls.autoRotate = rotateToggle.checked;
   });
 
-  clickModeRadios.forEach((r) => r.addEventListener("change", () => {
-    twoLevelLabel.style.display = clickMode() === "lens" ? "" : "none";
-    if (clickMode() === "lens" && selectedNeuronIdx >= 0) {
-      startLensAnim();
-    } else {
-      lensProgress = 0;
-      lensAnimStart = -1;
-      refresh();
-    }
-  }));
+  clickModeRadios.forEach((r) =>
+    r.addEventListener("change", () => {
+      twoLevelLabel.style.display = clickMode() === "lens" ? "" : "none";
+      if (clickMode() === "lens" && selectedNeuronIdx >= 0) {
+        startLensAnim();
+      } else {
+        lensProgress = 0;
+        lensAnimStart = -1;
+        refresh();
+      }
+    }),
+  );
 
   twoLevelToggle.addEventListener("change", refresh);
 
@@ -292,16 +296,22 @@
     for (const lid1 of firstLevel) {
       const idx1 = localIdToIdx.get(lid1);
       if (idx1 === undefined) continue;
-      for (const c of (out.get(lid1) ?? [])) {
+      for (const c of out.get(lid1) ?? []) {
         if (c.target_id !== neuronLocalId && !firstLevel.has(c.target_id)) {
           const idx2 = localIdToIdx.get(c.target_id);
-          if (idx2 !== undefined) { neighbours2.add(c.target_id); edges2.push([idx1, idx2]); }
+          if (idx2 !== undefined) {
+            neighbours2.add(c.target_id);
+            edges2.push([idx1, idx2]);
+          }
         }
       }
-      for (const c of (inn.get(lid1) ?? [])) {
+      for (const c of inn.get(lid1) ?? []) {
         if (c.source_id !== neuronLocalId && !firstLevel.has(c.source_id)) {
           const idx2 = localIdToIdx.get(c.source_id);
-          if (idx2 !== undefined) { neighbours2.add(c.source_id); edges2.push([idx1, idx2]); }
+          if (idx2 !== undefined) {
+            neighbours2.add(c.source_id);
+            edges2.push([idx1, idx2]);
+          }
         }
       }
     }
@@ -342,8 +352,14 @@
     if (twoLevelToggle.checked && edges2.length > 0) {
       const pos2: number[] = [];
       for (const [i1, i2] of edges2) {
-        pos2.push(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1),
-                  posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
+        pos2.push(
+          posAttr.getX(i1),
+          posAttr.getY(i1),
+          posAttr.getZ(i1),
+          posAttr.getX(i2),
+          posAttr.getY(i2),
+          posAttr.getZ(i2),
+        );
       }
       lineGeo2.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos2), 3));
       lineSegments2.visible = true;

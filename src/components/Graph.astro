@@ -88,12 +88,12 @@
         const selected = selector.get();
 
         const outConns = outMap.get(selected.local_id) ?? [];
-        const inConns  = innMap.get(selected.local_id) ?? [];
-        const outSet   = new Set(outConns.map((c) => c.target_id));
-        const inSet    = new Set(inConns.map((c) => c.source_id));
+        const inConns = innMap.get(selected.local_id) ?? [];
+        const outSet = new Set(outConns.map((c) => c.target_id));
+        const inSet = new Set(inConns.map((c) => c.source_id));
 
-        const outNeighbors  = selectedPositions.filter((n) => outSet.has(n.local_id));
-        const inNeighbors   = selectedPositions.filter((n) => inSet.has(n.local_id));
+        const outNeighbors = selectedPositions.filter((n) => outSet.has(n.local_id));
+        const inNeighbors = selectedPositions.filter((n) => inSet.has(n.local_id));
         const selectedNodes = selectedPositions.filter((n) => n.local_id === selected.local_id);
 
         const connectionWeight = (neuron: NeuronPosition): number =>
@@ -105,14 +105,18 @@
           marks: [
             // ── network links ──
             Plot.link(links, {
-              x1: "x1", y1: "y1", x2: "x2", y2: "y2",
+              x1: "x1",
+              y1: "y1",
+              x2: "x2",
+              y2: "y2",
               stroke: (d: Link) => weightColor(d.weight),
               strokeOpacity: 0.35,
             }),
 
             // ── outgoing-neighbour halos (darker) ──
             Plot.dot(outNeighbors, {
-              x: "x", y: "y",
+              x: "x",
+              y: "y",
               r: 4,
               fill: "none",
               stroke: "#888",
@@ -121,7 +125,8 @@
 
             // ── incoming-neighbour halos (bright) ──
             Plot.dot(inNeighbors, {
-              x: "x", y: "y",
+              x: "x",
+              y: "y",
               r: 4,
               fill: "none",
               stroke: "white",
@@ -130,7 +135,8 @@
 
             // ── selected-neuron halo ──
             Plot.dot(selectedNodes, {
-              x: "x", y: "y",
+              x: "x",
+              y: "y",
               r: 7,
               fill: "none",
               stroke: "white",
@@ -139,7 +145,8 @@
 
             // ── neuron dots ──
             Plot.dot(selectedPositions, {
-              x: "x", y: "y",
+              x: "x",
+              y: "y",
               tip: "xy",
               fill: "black",
               r: 1.5,

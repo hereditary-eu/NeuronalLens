@@ -15,8 +15,8 @@ DPI = 96
 PT_PER_INCH = 72
 PX_TO_PT = PT_PER_INCH / DPI
 
-SCREEN_WIDTH = 1728  # 18 inches * 96 DPI
-SCREEN_HEIGHT = 1094  # 11.4 inches * 96 DPI
+SCREEN_WIDTH = 1728
+SCREEN_HEIGHT = 1200
 
 chrome_options = Options()
 chrome_options.binary_location = "/usr/bin/brave-browser"
@@ -154,17 +154,21 @@ driver.get("http://localhost:4321")
 # time.sleep(1)
 
 driver.find_element(By.CSS_SELECTOR, "#show-graph").click()
+driver.execute_script(
+    'document.getElementById("neuron-nth-slider").value = 33;'
+    'document.getElementById("neuron-nth-slider").dispatchEvent(new Event("input"))'
+)
 # time.sleep(2)
 
 save_screenshot_pdf("graph-view.pdf")
 
-# ── Perspective view (PNG — WebGL canvas) ────────────────────────────────────
-driver.find_element(By.CSS_SELECTOR, "#show-perspective").click()
-# time.sleep(4)  # let positions load + Three.js render + auto-rotate settle
+# # ── Perspective view (PNG — WebGL canvas) ────────────────────────────────────
+# driver.find_element(By.CSS_SELECTOR, "#show-perspective").click()
+# # time.sleep(4)  # let positions load + Three.js render + auto-rotate settle
 
-save_screenshot_pdf("perspective-overview.pdf")
-screenshot_element_pdf("#three-d-view", "perspective-3d.pdf")
-screenshot_element_pdf("#three-controls", "perspective-controls.pdf")
+# save_screenshot_pdf("perspective-overview.pdf")
+# screenshot_element_pdf("#three-d-view", "perspective-3d.pdf")
+# screenshot_element_pdf("#three-controls", "perspective-controls.pdf")
 
 driver.close()
 driver.quit()
