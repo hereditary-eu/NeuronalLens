@@ -32,4 +32,13 @@ export const positions = atom<NeuronPosition[]>(
   }),
 );
 
-export const selector = atom<Selection>({ local_id: 1, x: null, y: null, z: null, area: null, type: null });
+export const currentTime = atom<number>(0);
+
+export const selector = atom<Selection>({
+  local_id: 1,
+  x: null,
+  y: null,
+  z: null,
+  area: null,
+  type: null,
+});

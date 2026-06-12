@@ -6,7 +6,7 @@ export default defineConfig({
     server: {
       watch: {
         ignored: /public/,
-      }
-    }
-  }
+      },
+    },
+  },
 });

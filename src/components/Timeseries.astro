@@ -2,12 +2,23 @@
 // Timeseries component – per-neuron monitor plots using Observable Plot
 ---
 
-<astro-timeseries></astro-timeseries>
+<astro-timeseries>
+  <div id="ts-plot-container"></div>
+</astro-timeseries>
+
+<style>
+  astro-timeseries {
+    display: block;
+  }
+  astro-timeseries svg {
+    display: block;
+  }
+</style>
 
 <script>
   import * as Plot from "@observablehq/plot";
   import * as d3 from "d3";
-  import { selector } from "./store";
+  import { selector, currentTime } from "./store";
 
   interface MonitorRow {
     step: number;
@@ -25,45 +36,156 @@
     connected_dendrites: number;
   }
 
+  const T_SIZE = 8; // triangle half-width / height
+
+  function makeWrapper(): { wrapper: HTMLDivElement; overlay: SVGSVGElement } {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "position: relative; margin-bottom: 5px;";
+    const overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    overlay.style.cssText = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;";
+    wrapper.appendChild(overlay);
+    return { wrapper, overlay };
+  }
+
+  function renderLine(overlay: SVGSVGElement, xScale: d3.ScaleLinear<number, number>, t: number) {
+    overlay.innerHTML = "";
+    const x = xScale(t);
+    const { height: h } = overlay.getBoundingClientRect();
+
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.style.cursor = "ew-resize";
+    g.setAttribute("pointer-events", "all");
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", String(x));
+    line.setAttribute("y1", "0");
+    line.setAttribute("x2", String(x));
+    line.setAttribute("y2", String(h));
+    line.setAttribute("stroke", "white");
+    line.setAttribute("stroke-width", "1.5");
+    line.setAttribute("stroke-dasharray", "4,3");
+    line.setAttribute("pointer-events", "none");
+    g.appendChild(line);
+
+    // wide transparent hit area
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    hit.setAttribute("x", String(x - T_SIZE));
+    hit.setAttribute("y", "0");
+    hit.setAttribute("width", String(T_SIZE * 2));
+    hit.setAttribute("height", String(h));
+    hit.setAttribute("fill", "transparent");
+    g.appendChild(hit);
+
+    // triangle pointing down, base at top edge
+    const topTri = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    topTri.setAttribute("points", `${x - T_SIZE},0 ${x + T_SIZE},0 ${x},${T_SIZE * 1.4}`);
+    topTri.setAttribute("fill", "white");
+    g.appendChild(topTri);
+
+    // triangle pointing up, base at bottom edge
+    const botTri = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    botTri.setAttribute("points", `${x - T_SIZE},${h} ${x + T_SIZE},${h} ${x},${h - T_SIZE * 1.4}`);
+    botTri.setAttribute("fill", "white");
+    g.appendChild(botTri);
+
+    overlay.appendChild(g);
+
+    return g;
+  }
+
+  function attachDrag(g: SVGGElement, overlay: SVGSVGElement, xScale: d3.ScaleLinear<number, number>) {
+    g.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      const [r0, r1] = xScale.range() as [number, number];
+
+      const onMove = (ev: PointerEvent) => {
+        const rect = overlay.getBoundingClientRect();
+        const px = ev.clientX - rect.left;
+        const clamped = Math.max(r0, Math.min(r1, px));
+        currentTime.set(Math.round(xScale.invert(clamped)));
+      };
+
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  }
+
   class AstroTimeseries extends HTMLElement {
     constructor() {
       super();
+      const container = this.querySelector<HTMLElement>("#ts-plot-container")!;
+
+      // one xScale shared across both overlays (same data, same step domain)
+      let xScale: d3.ScaleLinear<number, number> | null = null;
+      const overlays: SVGSVGElement[] = [];
+
+      const redrawAll = (t: number) => {
+        if (!xScale) return;
+        for (const ov of overlays) {
+          const g = renderLine(ov, xScale, t);
+          attachDrag(g, ov, xScale);
+        }
+      };
+
       selector.subscribe(async (neuron) => {
         const monitorCsv = await (await fetch(`/monitors/0_${neuron.local_id}.csv`)).text();
-        const monitor = d3.dsvFormat(";").parseRows(monitorCsv, (row): MonitorRow => ({
-          step: +(row[0] ?? 0),
-          fired: +(row[1] ?? 0),
-          fired_fraction: +(row[2] ?? 0),
-          activity: +(row[3] ?? 0),
-          dampening: +(row[4] ?? 0),
-          current_calcium: +(row[5] ?? 0),
-          target_calcium: +(row[6] ?? 0),
-          synaptic_input: +(row[7] ?? 0),
-          background_input: +(row[8] ?? 0),
-          grown_axons: +(row[9] ?? 0),
-          connected_axons: +(row[10] ?? 0),
-          grown_dendrites: +(row[11] ?? 0),
-          connected_dendrites: +(row[12] ?? 0),
-        }));
+        const monitor = d3.dsvFormat(";").parseRows(
+          monitorCsv,
+          (row): MonitorRow => ({
+            step: +(row[0] ?? 0),
+            fired: +(row[1] ?? 0),
+            fired_fraction: +(row[2] ?? 0),
+            activity: +(row[3] ?? 0),
+            dampening: +(row[4] ?? 0),
+            current_calcium: +(row[5] ?? 0),
+            target_calcium: +(row[6] ?? 0),
+            synaptic_input: +(row[7] ?? 0),
+            background_input: +(row[8] ?? 0),
+            grown_axons: +(row[9] ?? 0),
+            connected_axons: +(row[10] ?? 0),
+            grown_dendrites: +(row[11] ?? 0),
+            connected_dendrites: +(row[12] ?? 0),
+          }),
+        );
 
-        this.innerHTML = "";
-        this.appendChild(
-          Plot.plot({
-            marks: [Plot.lineY(monitor.slice(0, 400), { x: "step", y: "activity", z: null, stroke: "dampening", tip: "x" })],
-            width: 900,
-            height: 300,
+        container.innerHTML = "";
+        overlays.length = 0;
+
+        const slice = monitor.slice(0, 400);
+
+        const plotDefs: { key: "activity" | "dampening" }[] = [{ key: "activity" }, { key: "dampening" }];
+
+        const plotWidth = container.getBoundingClientRect().width || 900;
+        const plotHeight = 300;
+
+        for (const { key } of plotDefs) {
+          const plotEl = Plot.plot({
+            marks: [Plot.lineY(slice, { x: "step", y: key, z: null, stroke: "dampening", tip: "x" })],
+            width: plotWidth,
+            height: plotHeight,
             style: "--plot-background: black",
-          }),
-        );
-        this.appendChild(
-          Plot.plot({
-            marks: [Plot.lineY(monitor.slice(0, 400), { x: "step", y: "dampening", z: null, stroke: "dampening", tip: "x" })],
-            width: 900,
-            height: 300,
-            style: "--plot-background: black",
-          }),
-        );
+          });
+
+          if (!xScale) {
+            const sc = (plotEl as any).scale("x");
+            if (sc) xScale = d3.scaleLinear().domain(sc.domain).range(sc.range);
+          }
+
+          const { wrapper, overlay } = makeWrapper();
+          wrapper.insertBefore(plotEl, overlay); // plot behind overlay
+          overlays.push(overlay);
+          container.appendChild(wrapper);
+        }
+
+        redrawAll(currentTime.get());
       });
+
+      currentTime.subscribe((t) => redrawAll(t));
     }
   }
 

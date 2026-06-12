@@ -109,18 +109,24 @@ import Three from "../components/Three.astro";
   #switch span {
     cursor: pointer;
   }
+
+  @media print {
+    h1 {
+      display: none;
+    }
+  }
 </style>
 
 <script>
-  var graph = document.getElementById("graph");
-  var perspective = document.getElementById("three-d-view");
+  var graph = document.getElementById("graph")!;
+  var perspective = document.getElementById("three-d-view")!;
   graph.style.display = "none";
 
-  document.getElementById("show-graph").addEventListener("click", () => {
+  document.getElementById("show-graph")!.addEventListener("click", () => {
     perspective.style.display = "none";
     graph.style.display = "inherit";
   });
-  document.getElementById("show-perspective").addEventListener("click", () => {
+  document.getElementById("show-perspective")!.addEventListener("click", () => {
     perspective.style.display = "inherit";
     graph.style.display = "none";
     window.dispatchEvent(new Event("resize"));
