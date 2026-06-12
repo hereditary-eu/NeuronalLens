@@ -2,16 +2,42 @@
 // Timeseries component – per-neuron monitor plots using Observable Plot
 ---
 
+<div id="ts-controls">
+  <button id="ts-play-pause">▶ Play</button>
+  <button id="ts-shift-left">⏮ Back</button>
+</div>
 <astro-timeseries>
   <div id="ts-plot-container"></div>
 </astro-timeseries>
 
 <style>
+  #ts-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  #ts-controls button {
+    padding: 0.2rem 0.7rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  #ts-controls button:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
   astro-timeseries {
     display: block;
   }
   astro-timeseries svg {
     display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  #ts-plot-container {
+    width: 100%;
   }
 </style>
 
@@ -114,6 +140,38 @@
       window.addEventListener("pointerup", onUp);
     });
   }
+
+  // ── Play / Pause ──────────────────────────────────────────────────────────
+  const MAX_STEP = 39900; // 400 samples × 100
+  const STEP_SIZE = 100;
+  const PLAY_INTERVAL_MS = 80;
+
+  const playPauseBtn = document.getElementById("ts-play-pause") as HTMLButtonElement;
+  const shiftLeftBtn = document.getElementById("ts-shift-left") as HTMLButtonElement;
+
+  let playTimer: ReturnType<typeof setInterval> | null = null;
+
+  function setPlaying(on: boolean) {
+    if (on) {
+      playTimer = setInterval(() => {
+        const next = currentTime.get() + STEP_SIZE;
+        currentTime.set(next > MAX_STEP ? 0 : next);
+      }, PLAY_INTERVAL_MS);
+      playPauseBtn.textContent = "⏸ Pause";
+    } else {
+      if (playTimer !== null) {
+        clearInterval(playTimer);
+        playTimer = null;
+      }
+      playPauseBtn.textContent = "▶ Play";
+    }
+  }
+
+  playPauseBtn.addEventListener("click", () => setPlaying(playTimer === null));
+  shiftLeftBtn.addEventListener("click", () => {
+    setPlaying(false);
+    currentTime.set(0);
+  });
 
   class AstroTimeseries extends HTMLElement {
     constructor() {

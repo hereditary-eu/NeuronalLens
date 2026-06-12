@@ -11,19 +11,22 @@
   </label>
   <button id="reset-explosion">Reset</button>
 
-  <label>Color
+  <label
+    >Color
     <select id="sel-color">
       <option value="area">Area</option>
       <option value="activity" disabled>Activity</option>
     </select>
   </label>
-  <label>Overlay
+  <label
+    >Overlay
     <select id="sel-overlay">
       <option value="none">None</option>
       <option value="activity" disabled>Activity</option>
     </select>
   </label>
-  <label>Size
+  <label
+    >Size
     <select id="sel-size">
       <option value="constant">Constant</option>
       <option value="activity" disabled>Activity</option>
@@ -52,7 +55,11 @@
   const simLoading = document.getElementById("sim-loading")!;
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    preserveDrawingBuffer: window.matchMedia("print").matches,
+  });
   renderer.setSize(viewport.clientWidth, viewport.clientHeight);
   viewport.appendChild(renderer.domElement);
 
@@ -84,8 +91,14 @@
     areaColorMap.set(area, new THREE.Color().setHSL(i / uniqueAreas.length, 0.85, 0.55));
   });
 
-  let sumX = 0, sumY = 0, sumZ = 0;
-  for (const n of neurons) { sumX += n.x; sumY += n.y; sumZ += n.z; }
+  let sumX = 0,
+    sumY = 0,
+    sumZ = 0;
+  for (const n of neurons) {
+    sumX += n.x;
+    sumY += n.y;
+    sumZ += n.z;
+  }
   const brainCenter = new THREE.Vector3(sumX / N, sumY / N, sumZ / N);
 
   interface AreaData {
@@ -96,10 +109,13 @@
   const areaMap = new Map<string, AreaData>();
   for (let i = 0; i < N; i++) {
     const n = neurons[i]!;
-    if (!areaMap.has(n.area)) areaMap.set(n.area, { center: new THREE.Vector3(), direction: new THREE.Vector3(), indices: [] });
+    if (!areaMap.has(n.area))
+      areaMap.set(n.area, { center: new THREE.Vector3(), direction: new THREE.Vector3(), indices: [] });
     const ad = areaMap.get(n.area)!;
     ad.indices.push(i);
-    ad.center.x += n.x; ad.center.y += n.y; ad.center.z += n.z;
+    ad.center.x += n.x;
+    ad.center.y += n.y;
+    ad.center.z += n.z;
   }
   for (const [, ad] of areaMap) {
     ad.center.divideScalar(ad.indices.length);
@@ -117,7 +133,7 @@
 
   for (let i = 0; i < N; i++) {
     const n = neurons[i]!;
-    basePositions[i * 3]     = n.x - brainCenter.x;
+    basePositions[i * 3] = n.x - brainCenter.x;
     basePositions[i * 3 + 1] = n.y - brainCenter.y;
     basePositions[i * 3 + 2] = n.z - brainCenter.z;
     const c = areaColorMap.get(n.area) ?? new THREE.Color(1, 1, 1);
@@ -165,7 +181,8 @@
 
   // ── Simulation data ───────────────────────────────────────────────────────
   let activityData: Float32Array | null = null;
-  let activityMin = 0, activityMax = 1;
+  let activityMin = 0,
+    activityMax = 1;
   let nNeurons = N;
   const localIdToCol = new Map<number, number>();
 
@@ -204,7 +221,7 @@
 
   // ── Visual update ─────────────────────────────────────────────────────────
   const BASE_SIZE = 2.0;
-  const OVERLAY_MAX = 15; // units, much smaller than main explosion (80)
+  const OVERLAY_MAX = 50; // units, much smaller than main explosion (80)
 
   function applyVisuals(step: number) {
     const rowOffset = Math.floor(step / 100) * nNeurons;
@@ -276,13 +293,19 @@
 
   let globalFactor = 1.0;
 
-  function refresh() { applyVisuals(currentTime.get()); }
+  function refresh() {
+    applyVisuals(currentTime.get());
+  }
 
   // ── Sim data loading ──────────────────────────────────────────────────────
   async function loadSimData(): Promise<void> {
     simLoading.textContent = "Loading simulation data…";
     try {
-      const meta = await (await fetch("/sim-meta.json")).json() as { neuron_ids: number[]; n_steps: number; n_neurons: number };
+      const meta = (await (await fetch("/sim-meta.json")).json()) as {
+        neuron_ids: number[];
+        n_steps: number;
+        n_neurons: number;
+      };
       nNeurons = meta.n_neurons;
       meta.neuron_ids.forEach((id, idx) => localIdToCol.set(id, idx));
 
@@ -290,7 +313,8 @@
       const result = await loader.load("/sim-activity.npy");
       activityData = result.data as Float32Array;
 
-      activityMin = Infinity; activityMax = -Infinity;
+      activityMin = Infinity;
+      activityMax = -Infinity;
       for (let i = 0; i < activityData.length; i++) {
         const v = activityData[i]!;
         if (v < activityMin) activityMin = v;
@@ -326,7 +350,9 @@
   modeCheckbox.addEventListener("change", refresh);
   resetBtn.addEventListener("click", () => {
     for (const area of uniqueAreas) areaFactor.set(area, 1.0);
-    slider.value = "1.0"; globalFactor = 1.0; valueLabel.textContent = "1.00";
+    slider.value = "1.0";
+    globalFactor = 1.0;
+    valueLabel.textContent = "1.00";
     refresh();
   });
 

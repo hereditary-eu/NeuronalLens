@@ -13,13 +13,15 @@ import Three from "../components/Three.astro";
       To take a closer look at the data, select a Neuron on the left using your mouse. Connected Neurons will be
       highlighted in the graph and you will find timeseries visualisations on the right.
     </p>
-    <div style="display: flex;">
+    <div class="main-columns">
       <div class="left-container">
         <div id="switch"><span id="show-graph">Graph</span> || <span id="show-perspective">Perspective</span></div>
         <Graph />
         <Three />
       </div>
-      <Timeseries />
+      <div class="right-container">
+        <Timeseries />
+      </div>
     </div>
     <!-- <p class="instructions">
       To get started, open the directory <code>src/pages</code> in your project.<br
@@ -103,11 +105,29 @@ import Three from "../components/Three.astro";
     padding: 0;
   }
 
+  .main-columns {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
   .left-container {
-    width: 50vw;
+    flex: 0 0 52%;
+    min-width: 0;
+  }
+  .right-container {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  #switch {
+    margin-bottom: 0.4rem;
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.7);
   }
   #switch span {
     cursor: pointer;
+  }
+  #switch span:hover {
+    color: white;
   }
 
   @media print {
