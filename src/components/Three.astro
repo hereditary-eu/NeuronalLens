@@ -179,6 +179,38 @@
   const scene = new THREE.Scene();
   scene.add(pointCloud);
 
+  // ── Selection ring ────────────────────────────────────────────────────────
+  const ringGeo = new THREE.BufferGeometry();
+  const ringPos = new THREE.BufferAttribute(new Float32Array(3), 3);
+  ringPos.setUsage(THREE.DynamicDrawUsage);
+  ringGeo.setAttribute("position", ringPos);
+
+  const ringMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthTest: false,
+    vertexShader: `
+      void main() {
+        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = 14.0 * (300.0 / -mvPos.z);
+        gl_Position = projectionMatrix * mvPos;
+      }
+    `,
+    fragmentShader: `
+      void main() {
+        float r = length(gl_PointCoord - 0.5);
+        float ring = step(0.40, r) * step(r, 0.5);
+        if (ring < 0.5) discard;
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+      }
+    `,
+  });
+
+  const ringMesh = new THREE.Points(ringGeo, ringMat);
+  ringMesh.visible = false;
+  scene.add(ringMesh);
+
+  let selectedNeuronIdx = -1;
+
   // ── Simulation data ───────────────────────────────────────────────────────
   let activityData: Float32Array | null = null;
   let activityMin = 0,
@@ -289,6 +321,12 @@
     posAttr.needsUpdate = true;
     colAttr.needsUpdate = true;
     sizeAttr.needsUpdate = true;
+
+    // Keep ring in sync with the (possibly exploded) selected neuron position
+    if (selectedNeuronIdx >= 0) {
+      ringPos.setXYZ(0, posAttr.getX(selectedNeuronIdx), posAttr.getY(selectedNeuronIdx), posAttr.getZ(selectedNeuronIdx));
+      ringPos.needsUpdate = true;
+    }
   }
 
   let globalFactor = 1.0;
@@ -382,14 +420,14 @@
     }
   });
 
-  // ── Selection sphere ──────────────────────────────────────────────────────
+  // ── Selection ring ────────────────────────────────────────────────────────
   selector.subscribe((sel) => {
-    if (!sel.x) return;
-    const geo = new THREE.SphereGeometry(2.5, 32, 16);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x5bba4a });
-    const sphere = new THREE.Mesh(geo, mat);
-    geo.translate(sel.x - brainCenter.x, sel.y! - brainCenter.y, sel.z! - brainCenter.z);
-    scene.add(sphere);
+    const idx = neurons.findIndex((n) => n.local_id === sel.local_id);
+    selectedNeuronIdx = idx;
+    if (idx < 0) { ringMesh.visible = false; return; }
+    ringPos.setXYZ(0, posAttr.getX(idx), posAttr.getY(idx), posAttr.getZ(idx));
+    ringPos.needsUpdate = true;
+    ringMesh.visible = true;
   });
 
   // ── Render loop ───────────────────────────────────────────────────────────
