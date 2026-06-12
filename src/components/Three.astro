@@ -41,6 +41,7 @@
     Click:
     <label><input type="radio" name="click-mode" value="area" checked /> Area select</label>
     <label><input type="radio" name="click-mode" value="lens" /> Lens</label>
+    <label id="two-level-label" style="display:none"><input id="two-level-toggle" type="checkbox" checked /> 2-level</label>
   </span>
   <span id="sim-loading" style="color:#aaa;font-size:0.8rem"></span>
 </div>
@@ -65,6 +66,8 @@
   const rotateToggle = document.getElementById("rotate-toggle") as HTMLInputElement;
   const clickModeRadios = document.querySelectorAll<HTMLInputElement>("input[name='click-mode']");
   const clickMode = () => (document.querySelector<HTMLInputElement>("input[name='click-mode']:checked")?.value ?? "area");
+  const twoLevelLabel = document.getElementById("two-level-label") as HTMLElement;
+  const twoLevelToggle = document.getElementById("two-level-toggle") as HTMLInputElement;
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({
@@ -92,6 +95,7 @@
   });
 
   clickModeRadios.forEach((r) => r.addEventListener("change", () => {
+    twoLevelLabel.style.display = clickMode() === "lens" ? "" : "none";
     if (clickMode() === "lens" && selectedNeuronIdx >= 0) {
       startLensAnim();
     } else {
@@ -100,6 +104,8 @@
       refresh();
     }
   }));
+
+  twoLevelToggle.addEventListener("change", refresh);
 
   window.addEventListener("resize", () => {
     renderer.setSize(viewport.clientWidth, viewport.clientHeight);
@@ -150,6 +156,9 @@
 
   const areaFactor = new Map<string, number>();
   for (const area of uniqueAreas) areaFactor.set(area, 1.0);
+
+  const localIdToIdx = new Map<number, number>();
+  for (let i = 0; i < N; i++) localIdToIdx.set(neurons[i]!.local_id, i);
 
   // ── Geometry & shader ─────────────────────────────────────────────────────
   const basePositions = new Float32Array(N * 3);
@@ -257,14 +266,46 @@
   lineSegments.visible = false;
   scene.add(lineSegments);
 
+  const lineGeo2 = new THREE.BufferGeometry();
+  const lineSegments2 = new THREE.LineSegments(
+    lineGeo2,
+    new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.2 }),
+  );
+  lineSegments2.visible = false;
+  scene.add(lineSegments2);
+
   // Maps local_id → { out: Set<local_id>, in: Set<local_id> }
   let outNeighbours = new Set<number>();
   let inNeighbours = new Set<number>();
+  let neighbours2 = new Set<number>();
+  let edges2: [number, number][] = []; // pairs of [level-1 idx, level-2 idx]
 
   async function loadAndDrawConnections(neuronLocalId: number, time = currentTime.get()) {
     const { out, inn } = await fetchNetwork(time);
     outNeighbours = new Set((out.get(neuronLocalId) ?? []).map((c) => c.target_id));
     inNeighbours = new Set((inn.get(neuronLocalId) ?? []).map((c) => c.source_id));
+
+    // Second-level: neighbours of neighbours, excluding selected and first-level
+    const firstLevel = new Set([...outNeighbours, ...inNeighbours]);
+    neighbours2 = new Set<number>();
+    edges2 = [];
+    for (const lid1 of firstLevel) {
+      const idx1 = localIdToIdx.get(lid1);
+      if (idx1 === undefined) continue;
+      for (const c of (out.get(lid1) ?? [])) {
+        if (c.target_id !== neuronLocalId && !firstLevel.has(c.target_id)) {
+          const idx2 = localIdToIdx.get(c.target_id);
+          if (idx2 !== undefined) { neighbours2.add(c.target_id); edges2.push([idx1, idx2]); }
+        }
+      }
+      for (const c of (inn.get(lid1) ?? [])) {
+        if (c.source_id !== neuronLocalId && !firstLevel.has(c.source_id)) {
+          const idx2 = localIdToIdx.get(c.source_id);
+          if (idx2 !== undefined) { neighbours2.add(c.source_id); edges2.push([idx1, idx2]); }
+        }
+      }
+    }
+
     refresh();
   }
 
@@ -287,10 +328,8 @@
       if (!isOut && !isIn) continue;
       posArr.push(sx, sy, sz, posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
       if (isIn) {
-        // in-neighbours: bright white
         colArr.push(1, 1, 1, 1, 1, 1);
       } else {
-        // out-neighbours: darker grey
         colArr.push(0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
       }
     }
@@ -298,6 +337,19 @@
     lineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(posArr), 3));
     lineGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colArr), 3));
     lineSegments.visible = posArr.length > 0;
+
+    // Level-1 → level-2 edges on separate object
+    if (twoLevelToggle.checked && edges2.length > 0) {
+      const pos2: number[] = [];
+      for (const [i1, i2] of edges2) {
+        pos2.push(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1),
+                  posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
+      }
+      lineGeo2.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos2), 3));
+      lineSegments2.visible = true;
+    } else {
+      lineSegments2.visible = false;
+    }
   }
 
   // ── Simulation data ───────────────────────────────────────────────────────
@@ -343,8 +395,9 @@
   // ── Visual update ─────────────────────────────────────────────────────────
   const BASE_SIZE = 2.0;
   const OVERLAY_MAX = 50; // units, much smaller than main explosion (80)
-  const LENS_SELECTED = 35;
-  const LENS_CONNECTED = 15;
+  const LENS_SELECTED = 50;
+  const LENS_CONNECTED = 25;
+  const LENS_CONNECTED_2 = 10;
 
   function applyVisuals(step: number) {
     const rowOffset = Math.floor(step / 100) * nNeurons;
@@ -391,12 +444,14 @@
 
       // ── position: lens ──
       if (isLens && selectedNeuronIdx >= 0) {
+        const lid = n.local_id;
         let lensOffset = 0;
         if (i === selectedNeuronIdx) {
           lensOffset = LENS_SELECTED;
-        } else {
-          const lid = n.local_id;
-          if (outNeighbours.has(lid) || inNeighbours.has(lid)) lensOffset = LENS_CONNECTED;
+        } else if (outNeighbours.has(lid) || inNeighbours.has(lid)) {
+          lensOffset = LENS_CONNECTED;
+        } else if (neighbours2.has(lid)) {
+          lensOffset = LENS_CONNECTED_2;
         }
         if (lensOffset > 0) {
           const len = Math.sqrt(bx * bx + by * by + bz * bz) || 1;
@@ -426,6 +481,8 @@
           sizeAttr.setX(i, BASE_SIZE + 4.0 * lensProgress);
         } else if (outNeighbours.has(lid) || inNeighbours.has(lid)) {
           sizeAttr.setX(i, BASE_SIZE + 2.0 * lensProgress);
+        } else if (neighbours2.has(lid)) {
+          sizeAttr.setX(i, BASE_SIZE + 1.0 * lensProgress);
         } else if (sizeMetric === "activity") {
           const v = metricValue("activity", i, rowOffset) ?? 0.5;
           sizeAttr.setX(i, 0.5 + v * 4.0);
@@ -608,6 +665,9 @@
       lineSegments.visible = false;
       outNeighbours = new Set();
       inNeighbours = new Set();
+      neighbours2 = new Set();
+      edges2 = [];
+      lineSegments2.visible = false;
       return;
     }
     ringPos.setXYZ(0, posAttr.getX(idx), posAttr.getY(idx), posAttr.getZ(idx));
