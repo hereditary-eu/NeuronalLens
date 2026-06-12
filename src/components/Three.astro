@@ -505,13 +505,17 @@
   selSize.addEventListener("change", refresh);
 
   let lastNetworkStep = networkStepFor(currentTime.get());
+  const networkRefetchCheckbox = () =>
+    (document.getElementById("ts-network-refetch") as HTMLInputElement | null)?.checked ?? true;
 
   currentTime.subscribe((t) => {
     refresh();
     const step = networkStepFor(t);
-    if (step !== lastNetworkStep && selectedNeuronIdx >= 0) {
+    if (step !== lastNetworkStep) {
+      if (selectedNeuronIdx >= 0 && networkRefetchCheckbox()) {
+        loadAndDrawConnections(neurons[selectedNeuronIdx]!.local_id, t);
+      }
       lastNetworkStep = step;
-      loadAndDrawConnections(neurons[selectedNeuronIdx]!.local_id, t);
     }
   });
 

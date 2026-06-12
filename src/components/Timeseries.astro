@@ -5,6 +5,10 @@
 <div id="ts-controls">
   <button id="ts-play-pause">▶ Play</button>
   <button id="ts-shift-left">⏮ Back</button>
+  <label id="ts-network-label">
+    <input id="ts-network-refetch" type="checkbox" checked />
+    Update network with time
+  </label>
 </div>
 <astro-timeseries>
   <div id="ts-plot-container"></div>
@@ -27,6 +31,15 @@
   }
   #ts-controls button:hover {
     background: rgba(255, 255, 255, 0.2);
+  }
+  #ts-network-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: white;
+    cursor: pointer;
+    user-select: none;
   }
   astro-timeseries {
     display: block;
