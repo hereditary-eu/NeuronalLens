@@ -141,16 +141,25 @@ import Metadata from "../components/Metadata.astro";
 
 <script>
   var graph = document.getElementById("graph")!;
+  var graphControls = document.getElementById("graph-controls")!;
   var perspective = document.getElementById("three-d-view")!;
+  var threeControls = document.getElementById("three-controls")!;
+
+  // Start in perspective view
   graph.style.display = "none";
+  graphControls.style.display = "none";
 
   document.getElementById("show-graph")!.addEventListener("click", () => {
     perspective.style.display = "none";
+    threeControls.style.display = "none";
     graph.style.display = "inherit";
+    graphControls.style.display = "flex";
   });
   document.getElementById("show-perspective")!.addEventListener("click", () => {
-    perspective.style.display = "inherit";
     graph.style.display = "none";
+    graphControls.style.display = "none";
+    perspective.style.display = "inherit";
+    threeControls.style.display = "flex";
     window.dispatchEvent(new Event("resize"));
   });
 </script>

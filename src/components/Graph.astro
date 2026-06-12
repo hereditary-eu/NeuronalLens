@@ -2,33 +2,80 @@
 // Graph component – 2D scatter of neuron positions using Observable Plot
 ---
 
+<div id="graph-controls">
+  <label>
+    Neurons: <span id="neuron-count-value"></span>
+    <input id="neuron-nth-slider" type="range" min="1" max="46" step="1" value="41" />
+  </label>
+  <label>
+    Min weight: <span id="weight-threshold-value">0.00</span>
+    <input id="weight-threshold-slider" type="range" min="0" max="1" step="0.01" value="0" />
+  </label>
+</div>
 <astro-graph id="graph"></astro-graph>
 
 <script>
   import * as Plot from "@observablehq/plot";
+  import * as d3 from "d3";
   import { positions, selector, fetchNetwork } from "./models";
   import type { NeuronPosition } from "./models";
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function getEveryNth<T>(arr: T[], nth: number): T[] {
     const result: T[] = [];
-    for (let index = 0; index < arr.length; index += nth) {
-      result.push(arr[index]!);
-    }
+    for (let i = 0; i < arr.length; i += nth) result.push(arr[i]!);
     return result;
   }
 
-  const selectedPositions = getEveryNth(positions.get(), 12);
+  // ── State ──────────────────────────────────────────────────────────────────
+  const allPositions = positions.get();
+  let nthNeuron = 10; // slider value 41 → 51-41 = 10, ~5000 neurons
+  let weightThreshold = 0;
+  let selectedPositions = getEveryNth(allPositions, nthNeuron);
+  let posById = new Map<number, NeuronPosition>(selectedPositions.map((n) => [n.local_id, n]));
 
-  const { out: outMap } = await fetchNetwork();
+  const { out: outMap, inn: innMap } = await fetchNetwork();
 
-  const selectedNeuronConnections: Record<number, Record<number, number>> = {};
-  for (const [srcId, conns] of outMap) {
-    selectedNeuronConnections[srcId] = {};
-    for (const conn of conns) {
-      selectedNeuronConnections[srcId]![conn.target_id] = conn.weight;
+  // Compute weight range for slider calibration
+  let maxWeight = 0;
+  for (const conns of outMap.values()) {
+    for (const c of conns) {
+      if (c.weight > maxWeight) maxWeight = c.weight;
     }
   }
 
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const neuronSlider = document.getElementById("neuron-nth-slider") as HTMLInputElement;
+  const neuronCountLabel = document.getElementById("neuron-count-value")!;
+  const weightSlider = document.getElementById("weight-threshold-slider") as HTMLInputElement;
+  const weightLabel = document.getElementById("weight-threshold-value")!;
+
+  weightSlider.max = maxWeight.toFixed(2);
+  weightSlider.step = (maxWeight / 100).toFixed(4);
+  neuronCountLabel.textContent = String(selectedPositions.length);
+
+  // ── Links builder ──────────────────────────────────────────────────────────
+  type Link = { x1: number; y1: number; x2: number; y2: number; weight: number };
+
+  function buildLinks(): Link[] {
+    const links: Link[] = [];
+    for (const [srcId, conns] of outMap) {
+      const src = posById.get(srcId);
+      if (!src) continue;
+      for (const conn of conns) {
+        if (conn.weight < weightThreshold) continue;
+        const tgt = posById.get(conn.target_id);
+        if (!tgt) continue;
+        links.push({ x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y, weight: conn.weight });
+      }
+    }
+    return links;
+  }
+
+  // ── Color scale ────────────────────────────────────────────────────────────
+  const weightColor = (w: number) => d3.interpolateGreys(maxWeight > 0 ? w / maxWeight : 0);
+
+  // ── Plot render ────────────────────────────────────────────────────────────
   function selectNeuron(neuron: NeuronPosition) {
     selector.set(neuron);
   }
@@ -36,25 +83,66 @@
   class AstroGraph extends HTMLElement {
     constructor() {
       super();
-      selector.subscribe(() => {
+
+      const render = () => {
         const selected = selector.get();
-        const connectionHeuristic = (neuron: NeuronPosition): number => {
-          return selectedNeuronConnections[selected.local_id]?.[neuron.local_id] ?? 0;
-        };
+
+        const outConns = outMap.get(selected.local_id) ?? [];
+        const inConns  = innMap.get(selected.local_id) ?? [];
+        const outSet   = new Set(outConns.map((c) => c.target_id));
+        const inSet    = new Set(inConns.map((c) => c.source_id));
+
+        const outNeighbors  = selectedPositions.filter((n) => outSet.has(n.local_id));
+        const inNeighbors   = selectedPositions.filter((n) => inSet.has(n.local_id));
+        const selectedNodes = selectedPositions.filter((n) => n.local_id === selected.local_id);
+
+        const connectionWeight = (neuron: NeuronPosition): number =>
+          outConns.find((c) => c.target_id === neuron.local_id)?.weight ?? 0;
+
+        const links = buildLinks();
 
         const theplot = Plot.plot({
           marks: [
-            Plot.delaunayMesh(selectedPositions, {
-              x: "x",
-              y: "y",
-              strokeOpacity: 0.5,
+            // ── network links ──
+            Plot.link(links, {
+              x1: "x1", y1: "y1", x2: "x2", y2: "y2",
+              stroke: (d: Link) => weightColor(d.weight),
+              strokeOpacity: 0.35,
             }),
+
+            // ── outgoing-neighbour halos (darker) ──
+            Plot.dot(outNeighbors, {
+              x: "x", y: "y",
+              r: 4,
+              fill: "none",
+              stroke: "#888",
+              strokeWidth: 1.5,
+            }),
+
+            // ── incoming-neighbour halos (bright) ──
+            Plot.dot(inNeighbors, {
+              x: "x", y: "y",
+              r: 4,
+              fill: "none",
+              stroke: "white",
+              strokeWidth: 1.5,
+            }),
+
+            // ── selected-neuron halo ──
+            Plot.dot(selectedNodes, {
+              x: "x", y: "y",
+              r: 7,
+              fill: "none",
+              stroke: "white",
+              strokeWidth: 2,
+            }),
+
+            // ── neuron dots ──
             Plot.dot(selectedPositions, {
-              x: "x",
-              y: "y",
+              x: "x", y: "y",
               tip: "xy",
-              fill: (n: NeuronPosition) => (connectionHeuristic(n) === 0 ? "black" : "white"),
-              r: (n: NeuronPosition) => connectionHeuristic(n) * 2 || 0.15,
+              fill: "black",
+              r: 1.5,
               stroke: "area",
             }),
           ],
@@ -67,8 +155,24 @@
         this.appendChild(theplot);
         theplot.addEventListener("click", () => {
           const val = (theplot as HTMLElement & { value: NeuronPosition | null }).value;
-          if (val !== null && val !== undefined) selectNeuron(val);
+          if (val != null) selectNeuron(val);
         });
+      };
+
+      selector.subscribe(render);
+
+      neuronSlider.addEventListener("input", () => {
+        nthNeuron = 51 - parseInt(neuronSlider.value);
+        selectedPositions = getEveryNth(allPositions, nthNeuron);
+        posById = new Map(selectedPositions.map((n) => [n.local_id, n]));
+        neuronCountLabel.textContent = String(selectedPositions.length);
+        render();
+      });
+
+      weightSlider.addEventListener("input", () => {
+        weightThreshold = parseFloat(weightSlider.value);
+        weightLabel.textContent = weightThreshold.toFixed(2);
+        render();
       });
     }
   }
@@ -76,3 +180,26 @@
   customElements.define("astro-graph", AstroGraph);
   if (selectedPositions[0]) selectNeuron(selectedPositions[0]);
 </script>
+
+<style>
+  #graph-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.5rem 0;
+    color: white;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+  }
+  #graph-controls input[type="range"] {
+    width: 120px;
+    accent-color: rgb(var(--accent-light, 100 108 255));
+    vertical-align: middle;
+    margin-left: 0.4rem;
+  }
+  #graph-controls span {
+    display: inline-block;
+    min-width: 3ch;
+    text-align: right;
+  }
+</style>
