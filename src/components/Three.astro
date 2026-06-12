@@ -420,7 +420,19 @@
       }
 
       // ── size ──
-      if (sizeMetric === "activity") {
+      if (isLens && selectedNeuronIdx >= 0) {
+        const lid = n.local_id;
+        if (i === selectedNeuronIdx) {
+          sizeAttr.setX(i, BASE_SIZE + 4.0 * lensProgress);
+        } else if (outNeighbours.has(lid) || inNeighbours.has(lid)) {
+          sizeAttr.setX(i, BASE_SIZE + 2.0 * lensProgress);
+        } else if (sizeMetric === "activity") {
+          const v = metricValue("activity", i, rowOffset) ?? 0.5;
+          sizeAttr.setX(i, 0.5 + v * 4.0);
+        } else {
+          sizeAttr.setX(i, BASE_SIZE);
+        }
+      } else if (sizeMetric === "activity") {
         const v = metricValue("activity", i, rowOffset) ?? 0.5;
         sizeAttr.setX(i, 0.5 + v * 4.0); // range 0.5–4.5
       } else {
