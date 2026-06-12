@@ -1,0 +1,251 @@
+---
+
+---
+
+<astro-metadata id="neuron-metadata">
+  <div id="meta-empty">Select a neuron to see its metadata.</div>
+  <div id="meta-content" hidden>
+    <div id="meta-header">
+      <span id="meta-title"></span>
+      <span id="meta-area-type"></span>
+    </div>
+
+    <div class="meta-row">
+      <div class="meta-label">Position</div>
+      <div class="meta-kv-row" id="meta-position"></div>
+    </div>
+
+    <div class="meta-row">
+      <div class="meta-label">Metrics <span id="meta-step-label"></span></div>
+      <div class="meta-kv-row" id="meta-metrics"></div>
+    </div>
+
+    <div class="meta-row meta-row-connections">
+      <div class="meta-label">Out <span id="meta-out-count" class="meta-count"></span></div>
+      <div id="meta-out-list" class="meta-conn-list"></div>
+    </div>
+
+    <div class="meta-row meta-row-connections">
+      <div class="meta-label">In <span id="meta-in-count" class="meta-count"></span></div>
+      <div id="meta-in-list" class="meta-conn-list"></div>
+    </div>
+  </div>
+</astro-metadata>
+
+<style is:global>
+  astro-metadata {
+    display: block;
+    margin: 1.2rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+  }
+  #meta-empty {
+    color: rgba(255, 255, 255, 0.35);
+    font-style: italic;
+  }
+  #meta-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  #meta-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+  }
+  #meta-area-type {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.03em;
+  }
+
+  /* each row: label on the left, content on the right */
+  .meta-row {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.18rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .meta-row-connections {
+    align-items: start;
+  }
+  .meta-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255, 255, 255, 0.38);
+    white-space: nowrap;
+    padding-top: 0.1rem;
+  }
+  .meta-kv-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 1.1rem;
+  }
+  .meta-kv {
+    display: flex;
+    gap: 0.3rem;
+    min-width: 10rem;
+  }
+  .meta-k {
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .meta-v {
+    color: white;
+    font-variant-numeric: tabular-nums;
+  }
+  .meta-conn-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.4rem;
+    max-height: 4.5rem;
+    overflow-y: auto;
+    padding: 0.1rem 0;
+  }
+  .meta-conn-chip {
+    font-size: 0.72rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.72);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .meta-conn-chip:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+  }
+  .meta-count {
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.28);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  #meta-step-label {
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.28);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+</style>
+
+<script>
+  import { selector, currentTime, positions, fetchMonitor, fetchNetwork, monitorRowAt } from "./models";
+  import type { Selection, MonitorRow, ConnRow } from "./models";
+
+  const empty = document.getElementById("meta-empty")!;
+  const content = document.getElementById("meta-content")!;
+  const metaTitle = document.getElementById("meta-title")!;
+  const metaAreaType = document.getElementById("meta-area-type")!;
+  const metaPosition = document.getElementById("meta-position")!;
+  const metaMetrics = document.getElementById("meta-metrics")!;
+  const metaStepLabel = document.getElementById("meta-step-label")!;
+  const metaOutList = document.getElementById("meta-out-list")!;
+  const metaInList = document.getElementById("meta-in-list")!;
+  const metaOutCount = document.getElementById("meta-out-count")!;
+  const metaInCount = document.getElementById("meta-in-count")!;
+
+  function kv(k: string, v: string | number, decimals = 3) {
+    const vStr = typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(decimals)) : v;
+    return `<span class="meta-kv"><span class="meta-k">${k}:</span><span class="meta-v">${vStr}</span></span>`;
+  }
+
+  function chip(id: number, weight: number) {
+    return `<span class="meta-conn-chip" data-id="${id}">#${id}${weight !== 1 ? ` ×${weight}` : ""}</span>`;
+  }
+
+  function selectById(id: number) {
+    const neuron = positions.get().find((n) => n.local_id === id);
+    if (neuron) selector.set(neuron);
+  }
+
+  function onChipClick(e: MouseEvent) {
+    const chip = (e.target as HTMLElement).closest<HTMLElement>("[data-id]");
+    if (chip) selectById(parseInt(chip.dataset.id!));
+  }
+
+  metaOutList.addEventListener("click", onChipClick);
+  metaInList.addEventListener("click", onChipClick);
+
+  function renderMetrics(rows: MonitorRow[], step: number) {
+    const row = monitorRowAt(rows, step);
+    if (!row) {
+      metaMetrics.innerHTML = "<span style='color:rgba(255,255,255,0.3)'>no data</span>";
+      return;
+    }
+    metaStepLabel.textContent = `@ step ${row.step}`;
+    metaMetrics.innerHTML = [
+      kv("fired", row.fired),
+      kv("activity", row.activity),
+      kv("dampening", row.dampening),
+      kv("Ca²⁺", row.current_calcium),
+      kv("Ca²⁺ target", row.target_calcium),
+      kv("syn. input", row.synaptic_input),
+      kv("bg. input", row.background_input),
+      kv("axons", `${row.connected_axons}/${row.grown_axons}`),
+      kv("dendrites", `${row.connected_dendrites}/${row.grown_dendrites}`),
+    ].join("");
+  }
+
+  let network: Awaited<ReturnType<typeof fetchNetwork>> | null = null;
+
+  function renderConnections(local_id: number) {
+    const outs = (network?.out.get(local_id) ?? []).slice().sort((a, b) => b.weight - a.weight);
+    const ins = (network?.inn.get(local_id) ?? []).slice().sort((a, b) => b.weight - a.weight);
+    metaOutCount.textContent = `(${outs.length})`;
+    metaInCount.textContent = `(${ins.length})`;
+    metaOutList.innerHTML = outs.map((c) => chip(c.target_id, c.weight)).join("");
+    metaInList.innerHTML = ins.map((c) => chip(c.source_id, c.weight)).join("");
+  }
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let currentSel: Selection | null = null;
+  let monitorRows: MonitorRow[] = [];
+
+  async function onSelection(sel: Selection) {
+    currentSel = sel;
+    const neuron = positions.get().find((n) => n.local_id === sel.local_id);
+    if (!neuron) {
+      empty.hidden = false;
+      content.hidden = true;
+      return;
+    }
+
+    empty.hidden = true;
+    content.hidden = false;
+
+    metaTitle.textContent = `Neuron #${neuron.local_id}`;
+    metaAreaType.textContent = `${neuron.area} · ${neuron.type === "ex" ? "Excitatory" : neuron.type === "in" ? "Inhibitory" : neuron.type}`;
+    metaPosition.innerHTML = [kv("x", neuron.x), kv("y", neuron.y), kv("z", neuron.z)].join("");
+
+    // Load monitor & network in parallel
+    const [rows, net] = await Promise.all([fetchMonitor(neuron.local_id), fetchNetwork()]);
+    network = net;
+    monitorRows = rows;
+    renderMetrics(monitorRows, currentTime.get());
+    renderConnections(neuron.local_id);
+  }
+
+  class AstroMetadata extends HTMLElement {
+    constructor() {
+      super();
+      selector.subscribe((sel) => onSelection(sel));
+      currentTime.subscribe((t) => {
+        if (monitorRows.length > 0) renderMetrics(monitorRows, t);
+      });
+    }
+  }
+
+  customElements.define("astro-metadata", AstroMetadata);
+</script>

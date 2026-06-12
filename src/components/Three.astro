@@ -33,6 +33,10 @@
     </select>
   </label>
 
+  <label>
+    <input id="rotate-toggle" type="checkbox" checked />
+    Rotate
+  </label>
   <span id="sim-loading" style="color:#aaa;font-size:0.8rem"></span>
 </div>
 <div id="three-d-view"></div>
@@ -41,7 +45,7 @@
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   import NpyLoader from "npyjs";
-  import { positions, selector, currentTime } from "./store";
+  import { positions, selector, currentTime, fetchNetwork } from "./models";
 
   // ── DOM refs ──────────────────────────────────────────────────────────────
   const viewport = document.getElementById("three-d-view")!;
@@ -53,12 +57,13 @@
   const selOverlay = document.getElementById("sel-overlay") as HTMLSelectElement;
   const selSize = document.getElementById("sel-size") as HTMLSelectElement;
   const simLoading = document.getElementById("sim-loading")!;
+  const rotateToggle = document.getElementById("rotate-toggle") as HTMLInputElement;;
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
-    preserveDrawingBuffer: window.matchMedia("print").matches,
+    preserveDrawingBuffer: true,
   });
   renderer.setSize(viewport.clientWidth, viewport.clientHeight);
   viewport.appendChild(renderer.domElement);
@@ -74,6 +79,10 @@
   controls.enableZoom = true;
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.9;
+
+  rotateToggle.addEventListener("change", () => {
+    controls.autoRotate = rotateToggle.checked;
+  });
 
   window.addEventListener("resize", () => {
     renderer.setSize(viewport.clientWidth, viewport.clientHeight);
@@ -210,6 +219,59 @@
   scene.add(ringMesh);
 
   let selectedNeuronIdx = -1;
+  let hoveredNeuronIdx = -1;
+
+  // ── Connection lines ──────────────────────────────────────────────────────
+  const lineGeo = new THREE.BufferGeometry();
+  const lineSegments = new THREE.LineSegments(
+    lineGeo,
+    new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5 }),
+  );
+  lineSegments.visible = false;
+  scene.add(lineSegments);
+
+  // Maps local_id → { out: Set<local_id>, in: Set<local_id> }
+  let outNeighbours = new Set<number>();
+  let inNeighbours = new Set<number>();
+
+  async function loadAndDrawConnections(neuronLocalId: number) {
+    const { out, inn } = await fetchNetwork();
+    outNeighbours = new Set((out.get(neuronLocalId) ?? []).map((c) => c.target_id));
+    inNeighbours = new Set((inn.get(neuronLocalId) ?? []).map((c) => c.source_id));
+    updateConnectionLines();
+  }
+
+  function updateConnectionLines() {
+    if (selectedNeuronIdx < 0) {
+      lineSegments.visible = false;
+      return;
+    }
+    const sx = posAttr.getX(selectedNeuronIdx);
+    const sy = posAttr.getY(selectedNeuronIdx);
+    const sz = posAttr.getZ(selectedNeuronIdx);
+
+    const posArr: number[] = [];
+    const colArr: number[] = [];
+
+    for (let i = 0; i < N; i++) {
+      const lid = neurons[i]!.local_id;
+      const isOut = outNeighbours.has(lid);
+      const isIn = inNeighbours.has(lid);
+      if (!isOut && !isIn) continue;
+      posArr.push(sx, sy, sz, posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+      if (isIn) {
+        // in-neighbours: bright white
+        colArr.push(1, 1, 1, 1, 1, 1);
+      } else {
+        // out-neighbours: darker grey
+        colArr.push(0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
+      }
+    }
+
+    lineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(posArr), 3));
+    lineGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colArr), 3));
+    lineSegments.visible = posArr.length > 0;
+  }
 
   // ── Simulation data ───────────────────────────────────────────────────────
   let activityData: Float32Array | null = null;
@@ -322,11 +384,15 @@
     colAttr.needsUpdate = true;
     sizeAttr.needsUpdate = true;
 
-    // Keep ring in sync with the (possibly exploded) selected neuron position
-    if (selectedNeuronIdx >= 0) {
-      ringPos.setXYZ(0, posAttr.getX(selectedNeuronIdx), posAttr.getY(selectedNeuronIdx), posAttr.getZ(selectedNeuronIdx));
+    // Keep ring in sync with hovered or selected neuron position
+    const ringIdx = hoveredNeuronIdx >= 0 ? hoveredNeuronIdx : selectedNeuronIdx;
+    if (ringIdx >= 0) {
+      ringPos.setXYZ(0, posAttr.getX(ringIdx), posAttr.getY(ringIdx), posAttr.getZ(ringIdx));
       ringPos.needsUpdate = true;
     }
+
+    // Keep connection lines in sync with moved positions
+    if (selectedNeuronIdx >= 0) updateConnectionLines();
   }
 
   let globalFactor = 1.0;
@@ -403,6 +469,33 @@
     const rect = viewport.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObject(pointCloud);
+    const newHover = hits.length > 0 ? (hits[0]!.index ?? -1) : -1;
+    if (newHover !== hoveredNeuronIdx) {
+      hoveredNeuronIdx = newHover;
+      if (hoveredNeuronIdx >= 0) {
+        ringPos.setXYZ(
+          0,
+          posAttr.getX(hoveredNeuronIdx),
+          posAttr.getY(hoveredNeuronIdx),
+          posAttr.getZ(hoveredNeuronIdx),
+        );
+        ringPos.needsUpdate = true;
+        ringMesh.visible = true;
+      } else if (selectedNeuronIdx < 0) {
+        ringMesh.visible = false;
+      } else {
+        ringPos.setXYZ(
+          0,
+          posAttr.getX(selectedNeuronIdx),
+          posAttr.getY(selectedNeuronIdx),
+          posAttr.getZ(selectedNeuronIdx),
+        );
+        ringPos.needsUpdate = true;
+      }
+    }
   });
 
   viewport.addEventListener("click", () => {
@@ -414,8 +507,16 @@
         const clickedArea = neurons[idx]?.area;
         if (clickedArea) {
           for (const area of uniqueAreas) areaFactor.set(area, area === clickedArea ? 1.2 : 1.0);
-          refresh();
         }
+        // Select neuron and load connections
+        selectedNeuronIdx = idx;
+        const neuron = neurons[idx]!;
+        selector.set(neuron);
+        ringPos.setXYZ(0, posAttr.getX(idx), posAttr.getY(idx), posAttr.getZ(idx));
+        ringPos.needsUpdate = true;
+        ringMesh.visible = true;
+        loadAndDrawConnections(neuron.local_id);
+        refresh();
       }
     }
   });
@@ -424,10 +525,17 @@
   selector.subscribe((sel) => {
     const idx = neurons.findIndex((n) => n.local_id === sel.local_id);
     selectedNeuronIdx = idx;
-    if (idx < 0) { ringMesh.visible = false; return; }
+    if (idx < 0) {
+      if (hoveredNeuronIdx < 0) ringMesh.visible = false;
+      lineSegments.visible = false;
+      outNeighbours = new Set();
+      inNeighbours = new Set();
+      return;
+    }
     ringPos.setXYZ(0, posAttr.getX(idx), posAttr.getY(idx), posAttr.getZ(idx));
     ringPos.needsUpdate = true;
     ringMesh.visible = true;
+    loadAndDrawConnections(sel.local_id);
   });
 
   // ── Render loop ───────────────────────────────────────────────────────────

@@ -44,23 +44,8 @@
 <script>
   import * as Plot from "@observablehq/plot";
   import * as d3 from "d3";
-  import { selector, currentTime } from "./store";
-
-  interface MonitorRow {
-    step: number;
-    fired: number;
-    fired_fraction: number;
-    activity: number;
-    dampening: number;
-    current_calcium: number;
-    target_calcium: number;
-    synaptic_input: number;
-    background_input: number;
-    grown_axons: number;
-    connected_axons: number;
-    grown_dendrites: number;
-    connected_dendrites: number;
-  }
+  import { selector, currentTime, fetchMonitor, MAX_STEP, STEP_SIZE } from "./models";
+  import type { MonitorRow } from "./models";
 
   const T_SIZE = 8; // triangle half-width / height
 
@@ -142,8 +127,6 @@
   }
 
   // ── Play / Pause ──────────────────────────────────────────────────────────
-  const MAX_STEP = 39900; // 400 samples × 100
-  const STEP_SIZE = 100;
   const PLAY_INTERVAL_MS = 80;
 
   const playPauseBtn = document.getElementById("ts-play-pause") as HTMLButtonElement;
@@ -191,30 +174,10 @@
       };
 
       selector.subscribe(async (neuron) => {
-        const monitorCsv = await (await fetch(`/monitors/0_${neuron.local_id}.csv`)).text();
-        const monitor = d3.dsvFormat(";").parseRows(
-          monitorCsv,
-          (row): MonitorRow => ({
-            step: +(row[0] ?? 0),
-            fired: +(row[1] ?? 0),
-            fired_fraction: +(row[2] ?? 0),
-            activity: +(row[3] ?? 0),
-            dampening: +(row[4] ?? 0),
-            current_calcium: +(row[5] ?? 0),
-            target_calcium: +(row[6] ?? 0),
-            synaptic_input: +(row[7] ?? 0),
-            background_input: +(row[8] ?? 0),
-            grown_axons: +(row[9] ?? 0),
-            connected_axons: +(row[10] ?? 0),
-            grown_dendrites: +(row[11] ?? 0),
-            connected_dendrites: +(row[12] ?? 0),
-          }),
-        );
+        const slice = await fetchMonitor(neuron.local_id);
 
         container.innerHTML = "";
         overlays.length = 0;
-
-        const slice = monitor.slice(0, 400);
 
         const plotDefs: { key: "activity" | "dampening" }[] = [{ key: "activity" }, { key: "dampening" }];
 

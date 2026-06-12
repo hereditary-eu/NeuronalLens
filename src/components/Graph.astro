@@ -6,9 +6,8 @@
 
 <script>
   import * as Plot from "@observablehq/plot";
-  import * as d3 from "d3";
-  import { positions, selector } from "./store";
-  import type { NeuronPosition } from "./store";
+  import { positions, selector, fetchNetwork } from "./models";
+  import type { NeuronPosition } from "./models";
 
   function getEveryNth<T>(arr: T[], nth: number): T[] {
     const result: T[] = [];
@@ -20,19 +19,14 @@
 
   const selectedPositions = getEveryNth(positions.get(), 12);
 
-  const rawConnections = await d3.dsv(" ", "/rank_0_step_0_out_network.txt");
-  const outConnections = rawConnections.map((d) => ({
-    source_id: +(d["source_id"] ?? 0),
-    target_id: +(d["target_id"] ?? 0),
-    weight: +(d["weight"] ?? 0),
-  }));
+  const { out: outMap } = await fetchNetwork();
 
   const selectedNeuronConnections: Record<number, Record<number, number>> = {};
-  for (const conn of outConnections) {
-    if (!selectedNeuronConnections[conn.source_id]) {
-      selectedNeuronConnections[conn.source_id] = {};
+  for (const [srcId, conns] of outMap) {
+    selectedNeuronConnections[srcId] = {};
+    for (const conn of conns) {
+      selectedNeuronConnections[srcId]![conn.target_id] = conn.weight;
     }
-    selectedNeuronConnections[conn.source_id]![conn.target_id] = conn.weight;
   }
 
   function selectNeuron(neuron: NeuronPosition) {
