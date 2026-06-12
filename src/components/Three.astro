@@ -37,10 +37,11 @@
     <input id="rotate-toggle" type="checkbox" checked />
     Rotate
   </label>
-  <label>
-    <input id="area-select-toggle" type="checkbox" checked />
-    Area select
-  </label>
+  <span id="click-mode">
+    Click:
+    <label><input type="radio" name="click-mode" value="area" checked /> Area select</label>
+    <label><input type="radio" name="click-mode" value="lens" /> Lens</label>
+  </span>
   <span id="sim-loading" style="color:#aaa;font-size:0.8rem"></span>
 </div>
 <div id="three-d-view"></div>
@@ -62,7 +63,8 @@
   const selSize = document.getElementById("sel-size") as HTMLSelectElement;
   const simLoading = document.getElementById("sim-loading")!;
   const rotateToggle = document.getElementById("rotate-toggle") as HTMLInputElement;
-  const areaSelectToggle = document.getElementById("area-select-toggle") as HTMLInputElement;
+  const clickModeRadios = document.querySelectorAll<HTMLInputElement>("input[name='click-mode']");
+  const clickMode = () => (document.querySelector<HTMLInputElement>("input[name='click-mode']:checked")?.value ?? "area");
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({
@@ -88,6 +90,16 @@
   rotateToggle.addEventListener("change", () => {
     controls.autoRotate = rotateToggle.checked;
   });
+
+  clickModeRadios.forEach((r) => r.addEventListener("change", () => {
+    if (clickMode() === "lens" && selectedNeuronIdx >= 0) {
+      startLensAnim();
+    } else {
+      lensProgress = 0;
+      lensAnimStart = -1;
+      refresh();
+    }
+  }));
 
   window.addEventListener("resize", () => {
     renderer.setSize(viewport.clientWidth, viewport.clientHeight);
@@ -226,6 +238,16 @@
   let selectedNeuronIdx = -1;
   let hoveredNeuronIdx = -1;
 
+  // ── Lens animation ────────────────────────────────────────────────────────
+  let lensProgress = 0;
+  let lensAnimStart = -1;
+  const LENS_ANIM_MS = 300;
+
+  function startLensAnim() {
+    lensAnimStart = performance.now();
+    lensProgress = 0;
+  }
+
   // ── Connection lines ──────────────────────────────────────────────────────
   const lineGeo = new THREE.BufferGeometry();
   const lineSegments = new THREE.LineSegments(
@@ -243,7 +265,7 @@
     const { out, inn } = await fetchNetwork(time);
     outNeighbours = new Set((out.get(neuronLocalId) ?? []).map((c) => c.target_id));
     inNeighbours = new Set((inn.get(neuronLocalId) ?? []).map((c) => c.source_id));
-    updateConnectionLines();
+    refresh();
   }
 
   function updateConnectionLines() {
@@ -321,12 +343,15 @@
   // ── Visual update ─────────────────────────────────────────────────────────
   const BASE_SIZE = 2.0;
   const OVERLAY_MAX = 50; // units, much smaller than main explosion (80)
+  const LENS_SELECTED = 35;
+  const LENS_CONNECTED = 15;
 
   function applyVisuals(step: number) {
     const rowOffset = Math.floor(step / 100) * nNeurons;
     const colorMetric = selColor.value;
     const overlayMetric = selOverlay.value;
     const sizeMetric = selSize.value;
+    const isLens = clickMode() === "lens";
 
     const overlayAvgs = overlayMetric !== "none" ? areaAverages(overlayMetric, rowOffset) : null;
 
@@ -363,6 +388,24 @@
         py += ad.direction.y * avg * OVERLAY_MAX;
         pz += ad.direction.z * avg * OVERLAY_MAX;
       }
+
+      // ── position: lens ──
+      if (isLens && selectedNeuronIdx >= 0) {
+        let lensOffset = 0;
+        if (i === selectedNeuronIdx) {
+          lensOffset = LENS_SELECTED;
+        } else {
+          const lid = n.local_id;
+          if (outNeighbours.has(lid) || inNeighbours.has(lid)) lensOffset = LENS_CONNECTED;
+        }
+        if (lensOffset > 0) {
+          const len = Math.sqrt(bx * bx + by * by + bz * bz) || 1;
+          px += (bx / len) * lensOffset * lensProgress;
+          py += (by / len) * lensOffset * lensProgress;
+          pz += (bz / len) * lensOffset * lensProgress;
+        }
+      }
+
       posAttr.setXYZ(i, px, py, pz);
 
       // ── color ──
@@ -519,11 +562,13 @@
     if (intersects.length > 0) {
       const idx = intersects[0]!.index ?? -1;
       if (idx >= 0) {
-        if (areaSelectToggle.checked) {
+        if (clickMode() === "area") {
           const clickedArea = neurons[idx]?.area;
           if (clickedArea) {
             for (const area of uniqueAreas) areaFactor.set(area, area === clickedArea ? 1.2 : 1.0);
           }
+        } else {
+          startLensAnim();
         }
         // Select neuron and load connections
         selectedNeuronIdx = idx;
@@ -559,6 +604,12 @@
   function render() {
     requestAnimationFrame(render);
     controls.update();
+    if (lensAnimStart >= 0) {
+      const t = Math.min(1, (performance.now() - lensAnimStart) / LENS_ANIM_MS);
+      lensProgress = 1 - (1 - t) * (1 - t); // ease-out quad
+      applyVisuals(currentTime.get());
+      if (t >= 1) lensAnimStart = -1;
+    }
     renderer.render(scene, camera);
   }
   render();
