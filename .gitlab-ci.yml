@@ -1,0 +1,29 @@
+default:
+  image: docker:29.0
+  services:
+    - docker:29.0-dind
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  CONTAINER_FRONTEND_IMAGE: $CI_REGISTRY_IMAGE:frontend_$CI_COMMIT_REF_SLUG
+  CONTAINER_DOWNLOADER_IMAGE: $CI_REGISTRY_IMAGE:dataset-downloader_$CI_COMMIT_REF_SLUG
+
+build-frontend:
+  stage: build
+  script:
+    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CONTAINER_FRONTEND_IMAGE --pull -t $CONTAINER_FRONTEND_IMAGE -f Dockerfile .
+    - docker push $CONTAINER_FRONTEND_IMAGE
+
+build-downloader:
+  stage: build
+  script:
+    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CONTAINER_DOWNLOADER_IMAGE --pull -t $CONTAINER_DOWNLOADER_IMAGE -f Dockerfile.downloader .
+    - docker push $CONTAINER_DOWNLOADER_IMAGE
