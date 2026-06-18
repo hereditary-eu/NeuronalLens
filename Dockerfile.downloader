@@ -1,7 +1,12 @@
-FROM alpine
+FROM ghcr.io/astral-sh/uv:python3.12-alpine
 
 RUN apk add --no-cache curl unzip
 
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --group preprocess --no-install-project
+
+COPY preprocess.py ./
 COPY downloader-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
