@@ -1,6 +1,6 @@
 services:
-  downloader:
-    image: registry.gitlab.tugraz.at/cgv/neuronalbrainnetworkvisualisation:dataset-downloader_master
+  neuronal-lens-downloader:
+    image: registry.gitlab.tugraz.at/hereditary/neuronal-lens:dataset-downloader_master
     build:
       context: .
       dockerfile: Dockerfile.downloader
@@ -8,15 +8,15 @@ services:
       - stimulus:/data
     restart: no
 
-  frontend:
-    image: registry.gitlab.tugraz.at/cgv/neuronalbrainnetworkvisualisation:frontend_master
+  neuronal-lens-frontend:
+    image: registry.gitlab.tugraz.at/hereditary/neuronal-lens:frontend_master
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - stimulus:/usr/share/nginx/html/stimulus
     depends_on:
-      downloader:
+      neuronal-lens-downloader:
         condition: service_completed_successfully
     networks:
       - web
