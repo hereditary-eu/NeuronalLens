@@ -21,9 +21,9 @@ services:
     networks:
       - web
     labels:
-      - traefik.http.routers.neuronal-lens-http.rule=Host(`cgv.tugraz.at`) && PathPrefix(`/neuronal-lens/`)
+      - traefik.http.routers.neuronal-lens-http.rule=Host(`hereditary.cgv.tugraz.at`) && PathPrefix(`/neuronal-lens/`)
       - traefik.http.routers.neuronal-lens-http.entrypoints=http
-      - traefik.http.routers.neuronal-lens-https.rule=Host(`cgv.tugraz.at`) && PathPrefix(`/neuronal-lens/`)
+      - traefik.http.routers.neuronal-lens-https.rule=Host(`hereditary.cgv.tugraz.at`) && PathPrefix(`/neuronal-lens/`)
       - traefik.http.routers.neuronal-lens-https.entrypoints=https
       - traefik.http.routers.neuronal-lens-https.tls=true
       - traefik.http.routers.neuronal-lens-https.tls.certresolver=letsencrypt
