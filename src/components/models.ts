@@ -56,15 +56,22 @@ export interface NetworkData {
 }
 
 // ── Stores ────────────────────────────────────────────────────────────────────
+const positionsText = await fetch(`${STIMULUS}/rank_0_positions.txt`).then((r) => r.text());
 export const positions = atom<NeuronPosition[]>(
-  (await d3.dsv(" ", `${STIMULUS}/rank_0_positions.txt`)).map((d) => ({
-    local_id: +(d["local_id"] ?? 0),
-    x: +(d["x"] ?? 0),
-    y: +(d["z"] ?? 0),
-    z: +(d["y"] ?? 0),
-    area: d["area"] ?? "",
-    type: d["type"] ?? "",
-  })),
+  d3.dsvFormat(" ").parseRows(
+    positionsText
+      .split("\n")
+      .filter((l) => l.length > 0 && !l.startsWith("#"))
+      .join("\n"),
+    (row): NeuronPosition => ({
+      local_id: +row[0]!,
+      x: +row[1]!,
+      y: +row[3]!,
+      z: +row[2]!,
+      area: row[4]!,
+      type: row[5]!,
+    }),
+  ),
 );
 
 export const currentTime = atom<number>(0);
