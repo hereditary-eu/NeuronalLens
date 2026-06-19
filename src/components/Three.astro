@@ -580,7 +580,7 @@
 
   let lastNetworkStep = networkStepFor(currentTime.get());
   const networkRefetchCheckbox = () =>
-    (document.getElementById("ts-network-refetch") as HTMLInputElement | null)?.checked ?? true;
+    (document.getElementById("ts-network-refetch") as HTMLInputElement | null)?.checked ?? false;
 
   currentTime.subscribe((t) => {
     refresh();
