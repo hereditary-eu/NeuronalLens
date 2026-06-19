@@ -28,8 +28,5 @@ uv run --group preprocess python /app/preprocess.py \
   --monitors-dir /data/monitors \
   --output-dir /data
 
-echo "Cleaning up monitors..."
-rm -rf /data/monitors
-
 touch "$SENTINEL"
 echo "Done."
