@@ -13,7 +13,7 @@
   "dependencies": {
     "@observablehq/plot": "^0.6.16",
     "@types/three": "^0.184.1",
-    "astro": "6.4.6",
+    "astro": "6.4.8",
     "nanostores": "^1.3.0",
     "npyjs": "^1.1.0",
     "three": "^0.184.0",
