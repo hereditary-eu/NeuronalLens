@@ -5,6 +5,8 @@ import * as d3 from "d3";
 export const MAX_STEP = 39900;   // 400 monitor samples × step-size 100
 export const STEP_SIZE = 100;
 
+const STIMULUS = `${import.meta.env.BASE_URL}stimulus`;
+
 // ── Interfaces ────────────────────────────────────────────────────────────────
 export interface NeuronPosition {
   local_id: number;
@@ -55,7 +57,7 @@ export interface NetworkData {
 
 // ── Stores ────────────────────────────────────────────────────────────────────
 export const positions = atom<NeuronPosition[]>(
-  (await d3.dsv(" ", "/rank_0_positions.txt")).map((d) => ({
+  (await d3.dsv(" ", `${STIMULUS}/rank_0_positions.txt`)).map((d) => ({
     local_id: +(d["local_id"] ?? 0),
     x: +(d["x"] ?? 0),
     y: +(d["z"] ?? 0),
@@ -82,7 +84,7 @@ const monitorCache = new Map<number, MonitorRow[]>();
 export async function fetchMonitor(local_id: number): Promise<MonitorRow[]> {
   if (monitorCache.has(local_id)) return monitorCache.get(local_id)!;
   try {
-    const text = await fetch(`/monitors/0_${local_id}.csv`).then((r) => r.text());
+    const text = await fetch(`${STIMULUS}/monitors/0_${local_id}.csv`).then((r) => r.text());
     const rows = d3.dsvFormat(";").parseRows(text, (row): MonitorRow => ({
       step:               +(row[0]  ?? 0),
       fired:              +(row[1]  ?? 0),
@@ -148,8 +150,8 @@ export async function fetchNetwork(time = 0): Promise<NetworkData> {
   if (networkCache.has(step)) return networkCache.get(step)!;
 
   const [outText, inText] = await Promise.all([
-    fetch(`/rank_0_step_${step}_out_network.txt`).then((r) => r.text()),
-    fetch(`/rank_0_step_${step}_in_network.txt`).then((r) => r.text()),
+    fetch(`${STIMULUS}/rank_0_step_${step}_out_network.txt`).then((r) => r.text()),
+    fetch(`${STIMULUS}/rank_0_step_${step}_in_network.txt`).then((r) => r.text()),
   ]);
 
   const out = new Map<number, ConnRow[]>();

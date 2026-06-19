@@ -539,7 +539,8 @@
   async function loadSimData(): Promise<void> {
     simLoading.textContent = "Loading simulation data…";
     try {
-      const meta = (await (await fetch("/sim-meta.json")).json()) as {
+      const base = `${import.meta.env.BASE_URL}stimulus`;
+      const meta = (await (await fetch(`${base}/sim-meta.json`)).json()) as {
         neuron_ids: number[];
         n_steps: number;
         n_neurons: number;
@@ -548,7 +549,7 @@
       meta.neuron_ids.forEach((id, idx) => localIdToCol.set(id, idx));
 
       const loader = new NpyLoader();
-      const result = await loader.load("/sim-activity.npy");
+      const result = await loader.load(`${base}/sim-activity.npy`);
       activityData = result.data as Float32Array;
 
       activityMin = Infinity;
