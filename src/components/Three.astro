@@ -22,14 +22,14 @@
     >Overlay
     <select id="sel-overlay">
       <option value="none">None</option>
-      <option value="activity" selected disabled>Activity</option>
+      <option value="activity" disabled>Activity</option>
     </select>
   </label>
   <label
     >Size
     <select id="sel-size">
       <option value="constant">Constant</option>
-      <option value="activity" selected disabled>Activity</option>
+      <option value="activity" disabled>Activity</option>
     </select>
   </label>
 
@@ -583,6 +583,8 @@
         const opt = sel.querySelector<HTMLOptionElement>("option[value='activity']");
         if (opt) opt.disabled = false;
       }
+      selOverlay.value = "activity";
+      selSize.value = "activity";
       simLoading.textContent = "";
       refresh();
     } catch {
