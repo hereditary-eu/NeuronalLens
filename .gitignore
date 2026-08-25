@@ -27,3 +27,5 @@ pnpm-debug.log*
 data/
 public/
 paper
+tinymist.lock
+

@@ -1,8 +1,8 @@
 [project]
 name = "neuronal-brain-tools"
 version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = ["pypdf>=6.13.2", "selenium>=4.44.0", "pillow>=12.2.0"]
+requires-python = ">=3.12"
+dependencies = ["pypdf>=6.16.2", "selenium>=4.47.0", "pillow>=12.3.0"]
 
 [dependency-groups]
-preprocess = ["numpy>=2.4.6", "tqdm>=4.68.2"]
+preprocess = ["numpy>=2.5.2", "tqdm>=4.70.0"]
