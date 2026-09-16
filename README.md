@@ -2,7 +2,7 @@
 
 ![Screenshot](./figures/main.png)
 
-You can find the full paper [here](https://diglib.eg.org/server/api/core/bitstreams/7d3b2ed3-7011-4cb8-b3cf-5a4a37630f3b/content).
+You can find the full paper [here](https://doi.org/10.2312/vcbm.20261012).
 
 To start, run `bun install` and then
 
