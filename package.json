@@ -12,22 +12,22 @@
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.16",
-    "@types/three": "^0.184.1",
-    "astro": "6.4.8",
-    "nanostores": "^1.3.0",
-    "npyjs": "^1.1.0",
-    "three": "^0.184.0",
-    "typescript": "^6.0.3"
+    "@types/three": "^0.186.0",
+    "astro": "7.3.2",
+    "nanostores": "^1.5.3",
+    "npyjs": "^1.2.0",
+    "three": "^0.186.0",
+    "typescript": "^7.0.2"
   },
   "prettier": {
     "printWidth": 120
   },
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "1.4.2",
     "@types/d3": "^7.4.3"
   },
   "peerDependencies": {
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
