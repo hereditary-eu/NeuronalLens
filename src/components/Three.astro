@@ -47,6 +47,11 @@
   </span>
   <span id="sim-loading" style="color:#aaa;font-size:0.8rem"></span>
   <button id="fullscreen-toggle" type="button" title="Toggle fullscreen">⛶ Fullscreen</button>
+  <span id="color-legend">
+    <span id="color-legend-low"></span>
+    <span id="color-legend-bar"></span>
+    <span id="color-legend-high"></span>
+  </span>
 </div>
 <div id="three-d-view"></div>
 
@@ -72,6 +77,9 @@
   const twoLevelLabel = document.getElementById("two-level-label") as HTMLElement;
   const twoLevelToggle = document.getElementById("two-level-toggle") as HTMLInputElement;
   const fullscreenToggle = document.getElementById("fullscreen-toggle") as HTMLButtonElement;
+  const legendBar = document.getElementById("color-legend-bar")!;
+  const legendLow = document.getElementById("color-legend-low")!;
+  const legendHigh = document.getElementById("color-legend-high")!;
 
   // ── Renderer / camera / controls ─────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({
@@ -144,6 +152,21 @@
   uniqueAreas.forEach((area, i) => {
     areaColorMap.set(area, new THREE.Color().setHSL(i / uniqueAreas.length, 0.85, 0.55));
   });
+
+  // Colour bar mirroring the ramps used in applyVisuals().
+  function updateLegend() {
+    const categorical = selColor.value === "area";
+    const stops = Array.from({ length: 9 }, (_, k) => {
+      const v = k / 8;
+      return categorical
+        ? `hsl(${v * 360}, 85%, 55%)` // setHSL(i / uniqueAreas.length, 0.85, 0.55)
+        : `hsl(${(1 - v) * 0.67 * 360}, 100%, 50%)`; // setHSL((1 - v) * 0.67, 1.0, 0.5)
+    });
+    legendBar.style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+    legendLow.textContent = categorical ? "area 1" : "low";
+    legendHigh.textContent = categorical ? `area ${uniqueAreas.length}` : "high";
+  }
+  updateLegend();
 
   let sumX = 0,
     sumY = 0,
@@ -594,7 +617,10 @@
 
   loadSimData();
 
-  selColor.addEventListener("change", refresh);
+  selColor.addEventListener("change", () => {
+    updateLegend();
+    refresh();
+  });
   selOverlay.addEventListener("change", refresh);
   selSize.addEventListener("change", refresh);
 
@@ -764,6 +790,20 @@
   #three-d-view:fullscreen {
     width: 100vw;
     height: 100vh;
+  }
+  #color-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: 0.75rem;
+    user-select: none;
+  }
+  #color-legend-bar {
+    width: 6rem;
+    height: 0.2rem;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-left: 1px black;
   }
   #fullscreen-toggle {
     padding: 0.2rem 0.6rem;
