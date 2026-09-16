@@ -9,6 +9,11 @@
     <input id="ts-network-refetch" type="checkbox" />
     Update network with time
   </label>
+  <span id="ts-legend">
+    low
+    <span id="ts-legend-bar"></span>
+    high
+  </span>
 </div>
 <astro-timeseries>
   <div id="ts-plot-container"></div>
@@ -40,6 +45,32 @@
     color: white;
     cursor: pointer;
     user-select: none;
+  }
+  #ts-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: white;
+    user-select: none;
+    margin-left: 0.75rem;
+  }
+  /* same ramp as Three.astro activity colours: setHSL((1 - v) * 0.67, 1.0, 0.5) */
+  #ts-legend-bar {
+    width: 6rem;
+    height: 0.2rem;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-left: 1px black;
+    background: linear-gradient(
+      to right,
+      hsl(241, 100%, 50%),
+      hsl(193, 100%, 50%),
+      hsl(145, 100%, 50%),
+      hsl(96, 100%, 50%),
+      hsl(48, 100%, 50%),
+      hsl(0, 100%, 50%)
+    );
   }
   astro-timeseries {
     display: block;
